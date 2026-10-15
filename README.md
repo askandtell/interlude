@@ -72,7 +72,7 @@ npm run test:e2e
 
 安装 FFmpeg 后，`npm run test:media` 可以生成测试片和麦克风测试音。启动本机 LiveKit，再设置 `MEDIA_E2E=1`，可以运行转发音视频测试。公网测试使用 `PUBLIC_E2E_URL` 和 `npm run test:public`，会创建临时房间并消耗少量媒体额度。
 
-[测试结果](docs/TEST_REPORT.md) · [架构](docs/ARCHITECTURE.md) · [安全说明](docs/SECURITY.md)
+[参与开发](CONTRIBUTING.md) · [测试结果](docs/TEST_REPORT.md) · [架构](docs/ARCHITECTURE.md) · [安全说明](docs/SECURITY.md)
 
 ## 当前限制
 

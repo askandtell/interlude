@@ -17,7 +17,12 @@ export function useRoomSession(
   desiredRoom.current = roomId;
   const accept = useCallback((view: RoomView) => {
     if (view.id !== desiredRoom.current) return;
-    if (current.current?.id === view.id && view.serverNow < current.current.serverNow) return;
+    if (
+      current.current?.id === view.id &&
+      (view.revision < current.current.revision ||
+        (view.revision === current.current.revision && view.serverNow < current.current.serverNow))
+    )
+      return;
     current.current = view;
     setRoom(view);
   }, []);
@@ -42,14 +47,34 @@ export function useRoomSession(
   useEffect(() => {
     if (!roomId || !room?.selfId || room.closed || room.selfStatus === 'denied') return;
     const client = connectRoom(roomId);
+    let active = true;
+    let refreshing = false;
     socket.current = client;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const view = await api<RoomView>(`/api/rooms/${roomId}`);
+        if (active) accept(view);
+      } catch {
+        // A transport failure does not by itself revoke room membership.
+      } finally {
+        refreshing = false;
+      }
+    };
     client.on('snapshot', (view) => {
       accept(view);
       setConnected(client.connected);
     });
-    client.on('disconnect', () => setConnected(false));
+    client.on('disconnect', (reason) => {
+      setConnected(false);
+      if (reason === 'io server disconnect') void refresh();
+    });
     client.on('connect_error', (e) => {
       setConnected(false);
+      // Approval can be rejected or the room ended while the handshake is in flight.
+      // Fetch the final state even when this socket never received a snapshot.
+      void refresh();
       onError(e);
     });
     client.on('revoked', () => {
@@ -64,6 +89,7 @@ export function useRoomSession(
         void emit<RoomView>(client, 'heartbeat', {}).then(accept).catch(onError);
     }, 15000);
     return () => {
+      active = false;
       clearInterval(tick);
       client.disconnect();
       if (socket.current === client) socket.current = undefined;

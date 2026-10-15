@@ -22,7 +22,7 @@ export function AdmissionNotice({
   }, []);
   if (!pending.length || (reviewing && !fullscreen)) return null;
   const first = pending[0];
-  return createPortal(
+  const notice = (
     <div className="admission-notice" role="status" aria-live="polite" aria-atomic="true">
       <IconUserPlus size={20} aria-hidden="true" />
       <div>
@@ -41,7 +41,7 @@ export function AdmissionNotice({
       >
         查看申请
       </button>
-    </div>,
-    fullscreen || document.body,
+    </div>
   );
+  return fullscreen ? createPortal(notice, fullscreen) : notice;
 }

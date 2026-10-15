@@ -463,22 +463,6 @@ export default function App() {
   );
   return (
     <div className={`app ${roomId ? 'room-app' : 'home-app'}`}>
-      {host && room && !room.closed && room.selfStatus === 'approved' && (
-        <AdmissionNotice
-          pending={room.pending}
-          connected={connected}
-          reviewing={side === 'members' && (mobile ? mobileSidebar : sidebar)}
-          onReview={() => {
-            setSettingsOpen(false);
-            setEndOpen(false);
-            setWebsiteOpen(false);
-            setSide('members');
-            setSidebar(true);
-            setMobileSidebar(true);
-            requestAnimationFrame(() => document.getElementById('pending-admissions')?.focus());
-          }}
-        />
-      )}
       <header className="topbar">
         <button
           className="logo-button"
@@ -530,6 +514,22 @@ export default function App() {
           </span>
         )}
       </header>
+      {host && room && !room.closed && room.selfStatus === 'approved' && (
+        <AdmissionNotice
+          pending={room.pending}
+          connected={connected}
+          reviewing={side === 'members' && (mobile ? mobileSidebar : sidebar)}
+          onReview={() => {
+            setSettingsOpen(false);
+            setEndOpen(false);
+            setWebsiteOpen(false);
+            setSide('members');
+            setSidebar(true);
+            setMobileSidebar(true);
+            requestAnimationFrame(() => document.getElementById('pending-admissions')?.focus());
+          }}
+        />
+      )}
       {failure && (
         <div className="error-banner" role="alert">
           <span>{failure}</span>

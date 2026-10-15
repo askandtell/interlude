@@ -87,6 +87,37 @@ test('chat shows multiple requests and the queue survives a host refresh', async
   }
 });
 
+test('a request denied before its socket handshake still reaches the rejected state', async ({
+  page,
+  browser,
+}) => {
+  const data = await createHost(page, 'direct');
+  const context = await browser.newContext();
+  const guest = await context.newPage();
+  let releaseHandshake!: () => void;
+  const handshake = new Promise<void>((resolve) => {
+    releaseHandshake = resolve;
+  });
+  await guest.routeWebSocket('**/socket.io/**', async (ws) => {
+    await handshake;
+    ws.connectToServer();
+  });
+  try {
+    await guest.goto(new URL(`/room/${data.room.id}#invite=${data.invite}`, page.url()).href);
+    await guest.getByLabel('你的昵称').fill('小雨');
+    await guest.getByRole('button', { name: '敲门，申请加入' }).click();
+    await expect(page.locator('.admission-notice')).toContainText('小雨申请加入房间');
+    await page.getByRole('button', { name: '查看申请', exact: true }).click();
+    await page.getByRole('button', { name: '拒绝 小雨', exact: true }).click();
+    releaseHandshake();
+    await expect(guest.getByRole('heading', { name: '申请未通过' })).toBeVisible();
+    await expect(guest.getByLabel('聊天消息')).toHaveCount(0);
+  } finally {
+    releaseHandshake();
+    await context.close();
+  }
+});
+
 test('fullscreen requests remain visible and review exits fullscreen without losing the request', async ({
   page,
   browser,
