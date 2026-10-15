@@ -56,8 +56,11 @@ for (const delivery of ['direct', 'relay'] as const) {
       await expect(guest.locator('.error-banner')).toHaveCount(0);
       mkdirSync('artifacts', { recursive: true });
       await page.screenshot({ path: `artifacts/public-${delivery}.png`, fullPage: true });
-      const health = await page.request.get('/api/health');
-      const status = await health.json();
+      const status = await page.evaluate(async () => {
+        const response = await fetch('/api/health', { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error(`Health check failed: HTTP ${response.status}`);
+        return response.json();
+      });
       expect(status.storage).toBe(true);
       if (delivery === 'relay') expect(status.media).toBe(true);
       await page.getByRole('button', { name: /座位/ }).click();
