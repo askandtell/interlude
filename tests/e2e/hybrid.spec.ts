@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createHost, admit } from './helpers';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 
 async function start(page: Page) {
   await page.locator('input[type=file]').first().setInputFiles('.cache/fixtures/barcode.mp4');
@@ -17,6 +17,10 @@ test('two viewers receive actual P2P film and separate voice without cloud token
   page,
   browser,
 }) => {
+  test.skip(
+    !existsSync('.cache/fixtures/barcode.mp4'),
+    'Generate fixtures with npm run test:media; P2P needs no relay service',
+  );
   test.setTimeout(90000);
   let tokens = 0;
   const errors: string[] = [];
