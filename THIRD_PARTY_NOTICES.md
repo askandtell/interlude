@@ -1,6 +1,6 @@
 # Attribution and sources
 
-This work derives from **WatchParty**, copyright (c) 2020 Howard Chung, licensed under MIT. The original LICENSE is retained without modification. Upstream: https://github.com/howardchung/watchparty . Baseline: `2d366c1006b7b86228bcd7bb6debc111d857f51e`. The original Git history remains available through that commit (1834 reachable commits).
+Interlude is derived from **WatchParty**, copyright (c) 2020 Howard Chung, under the MIT license. The original LICENSE, attribution and Git history are retained. See [WatchParty](https://github.com/howardchung/watchparty) and the [source version used](https://github.com/howardchung/watchparty/tree/2d366c1006b7b86228bcd7bb6debc111d857f51e).
 
 `src/media/ClientTranscoder.ts` retains WatchParty's local WebCodecs/Mediabunny conversion implementation, relocated from `src/utils/clientTranscode.ts`. Room/security/UI code is rewritten for private rooms. Upstream cloud services, billing, virtual browsing, external default TURN endpoints, magnet links and Firebase configuration are removed from the current working tree; they remain visible only in historical upstream commits.
 
@@ -10,9 +10,7 @@ Runtime package metadata is listed in `docs/DEPENDENCIES.json`; regenerate it wi
 
 Redis is a separately deployed service, not application source. The provided Redis 7.4.2 container is under Redis's source-available RSALv2/SSPLv1 choices, not the BSD license of the Redis 7.0.15 used in native local testing. Review the exact server-image license when choosing a deployment; do not label every dependency as MIT. No Redis server binaries are included in this repository.
 
-Syncplay (Apache-2.0) and OpenTogetherTube (AGPL-3.0) were research references; their source is not incorporated. No commercial movie posters, copyrighted film stills, Apple logos or Apple fonts are bundled. Interface icons use Tabler.
-
-Current screenshots in `docs/design/` show the running application. Interface icons use Tabler.
+Syncplay (Apache-2.0) and OpenTogetherTube (AGPL-3.0) were research references; their source is not incorporated. Interface icons use Tabler. Screenshots in `docs/design/` show the running application.
 
 ## Optional website-sync extension
 

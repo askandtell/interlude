@@ -1782,14 +1782,13 @@ p {
   font-size: 14px;
 }
 .admission-notice {
-  position: fixed;
+  position: sticky;
   z-index: 450;
-  top: 84px;
-  right: 24px;
+  top: 12px;
+  margin: 16px 24px 0;
   display: flex;
   align-items: center;
   gap: 14px;
-  width: min(470px, calc(100vw - 32px));
   padding: 16px;
   color: #ecedee;
   background: #252728;
@@ -1820,13 +1819,15 @@ p {
   flex-shrink: 0;
 }
 :fullscreen .admission-notice {
+  position: absolute;
   top: 16px;
   right: 16px;
+  width: min(470px, calc(100% - 32px));
+  margin: 0;
 }
 @media (max-width: 760px) {
   .admission-notice {
-    top: 76px;
-    right: 16px;
+    margin: 12px 16px 0;
     gap: 10px;
   }
 }

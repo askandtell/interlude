@@ -47,6 +47,8 @@ The repository includes Docker Compose and a Free Render Blueprint. A provider s
 
 Run `npm run check` and `npm run test:e2e`. Generate media fixtures with `npm run test:media` after installing FFmpeg. Set `MEDIA_E2E=1` with a running local LiveKit to include relay tests. Public tests use `PUBLIC_E2E_URL` and `npm run test:public`; they create temporary rooms and consume some media quota.
 
+See [contributing](CONTRIBUTING.md) for project layout and pull request guidance.
+
 ## Limitations
 
 This is an early release. Desktop browsers and the public HTTPS instance have been tested with real direct and cloud-relayed video/audio. Separate-ISP networks, physical phones, TURN-only conditions and a two-hour soak still need testing. Viewers cannot seek independently within the shared live stream.

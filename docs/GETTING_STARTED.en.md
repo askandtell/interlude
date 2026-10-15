@@ -6,9 +6,9 @@ Interlude supplies private watch-room software, not a movie catalogue. Friends j
 
 Open the host's complete invitation including `#invite=...`, enter a nickname, wait for approval and click Start watching. There is no room code or public directory. Creating a new invitation invalidates the previous link.
 
-To host, open an instance, create a room, choose a local movie and wait for inspection. Invite and approve friends, then start screening. Keep the host tab open. After refreshing, select the file again and explicitly confirm resume. Only the host controls the shared timeline; guests control their own volume. Microphones are off until enabled.
+To host, create a room, choose a local movie and wait for the file check. Copy an invitation for friends. New requests appear even when chat is collapsed or the player is fullscreen; click Review requests to approve them. Start screening and keep the host tab open. After refreshing, select the file again and confirm where to resume. Only the host controls the shared timeline; guests control their own volume. Microphones are off until enabled.
 
-Use desktop Chrome or Edge for local-file hosting. Viewer capabilities vary; real mobile-device acceptance is incomplete. MP4 H.264/AAC is a useful starting sample, not a compatibility guarantee. For official video websites, see the [experimental extension guide](WEBSITE_WATCH.md).
+Use desktop Chrome or Edge for local-file hosting. Safari, Firefox and physical phones need more compatibility testing. MP4 H.264/AAC is a useful starting point; the file check determines whether a particular video can play. For official video websites, see the [experimental extension guide](WEBSITE_WATCH.md).
 
 ## Try locally
 
