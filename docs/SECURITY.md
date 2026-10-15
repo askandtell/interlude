@@ -31,6 +31,10 @@ Room retirement is a coordinated operation, not immediate JWT revocation. Honest
 
 ## Required pre-release checks
 
+`npm run security:secrets` rejects tracked private configuration, common credential formats, server credential references in frontend code, and copies of local `.env` credentials in tracked files or the production build. It prints file names and rule names only. This check also runs through `npm run check` in CI. Do not prefix private variables with `VITE_`: Vite exposes those variables to the browser. The LiveKit WebSocket address and short-lived room JWT are expected client inputs; the LiveKit API secret and session signing secret must remain on the server.
+
+Before publishing, also scan Git history with Gitleaks (`gitleaks git --redact=100 --log-opts="--all" .`). The lightweight repository check is not a replacement for a history scanner. If a real credential is found, revoke or rotate it at its provider first; deleting the file or rewriting history cannot undo disclosure. Keep scanner reports private and redact values before sharing findings. Never paste deployment dashboards, `.env` files, browser storage or raw server logs into public issues.
+
 Run authorization/protocol tests, dependency audit and secret scan; exercise TURN-only networks and real Safari/iOS/Android devices. Adversarially validate maximum publisher/track counts at the SFU edge: webhook/periodic enforcement is reactive, rather than an atomic per-track admission hook. Confirm deployment-level connection/bitrate quotas before exposing an untrusted public service. Use container runtime resource limits, scan container images separately and review advisories on every release.
 
 References: [OWASP WebSocket security](https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html), [LiveKit token grants](https://docs.livekit.io/frontends/reference/tokens-grants/), [LiveKit self hosting](https://docs.livekit.io/transport/self-hosting/).

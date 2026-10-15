@@ -31,6 +31,7 @@ import {
 import type { PlaybackCommand, RoomView } from '../shared/protocol';
 import { api, session } from './api';
 import { DevicePanel } from './components/DevicePanel';
+import { AdmissionNotice } from './components/AdmissionNotice';
 import { Player } from './components/Player';
 import { RoomSidebar } from './components/RoomSidebar';
 import { useLocalFilm } from './hooks/useLocalFilm';
@@ -462,6 +463,22 @@ export default function App() {
   );
   return (
     <div className={`app ${roomId ? 'room-app' : 'home-app'}`}>
+      {host && room && !room.closed && room.selfStatus === 'approved' && (
+        <AdmissionNotice
+          pending={room.pending}
+          connected={connected}
+          reviewing={side === 'members' && (mobile ? mobileSidebar : sidebar)}
+          onReview={() => {
+            setSettingsOpen(false);
+            setEndOpen(false);
+            setWebsiteOpen(false);
+            setSide('members');
+            setSidebar(true);
+            setMobileSidebar(true);
+            requestAnimationFrame(() => document.getElementById('pending-admissions')?.focus());
+          }}
+        />
+      )}
       <header className="topbar">
         <button
           className="logo-button"

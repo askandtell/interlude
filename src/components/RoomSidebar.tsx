@@ -146,6 +146,38 @@ export function RoomSidebar(p: Props) {
         </>
       ) : (
         <div className="members-list">
+          {p.host && p.room.pending.length > 0 && (
+            <section aria-labelledby="pending-admissions">
+              <h3 id="pending-admissions" tabIndex={-1}>
+                等待批准
+              </h3>
+              {p.room.pending.map((m) => (
+                <div className="member-row pending" key={m.id}>
+                  <span className="chat-avatar">{m.nickname.slice(0, 1)}</span>
+                  <div>
+                    <strong>{m.nickname}</strong>
+                    <small>申请加入房间</small>
+                  </div>
+                  <button
+                    className="icon-button"
+                    disabled={!p.connected}
+                    aria-label={`批准 ${m.nickname}`}
+                    onClick={() => p.run(p.manage('approve', m.id))}
+                  >
+                    <IconCheck size={18} />
+                  </button>
+                  <button
+                    className="icon-button danger"
+                    disabled={!p.connected}
+                    aria-label={`拒绝 ${m.nickname}`}
+                    onClick={() => p.run(p.manage('deny', m.id))}
+                  >
+                    <IconX size={18} />
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
           {p.room.members.map((m) => (
             <div className="member-row" key={m.id}>
               <span className="chat-avatar">{m.nickname.slice(0, 1)}</span>
@@ -174,36 +206,6 @@ export function RoomSidebar(p: Props) {
               )}
             </div>
           ))}
-          {p.host && p.room.pending.length > 0 && (
-            <>
-              <h3>等待批准</h3>
-              {p.room.pending.map((m) => (
-                <div className="member-row pending" key={m.id}>
-                  <span className="chat-avatar">{m.nickname.slice(0, 1)}</span>
-                  <div>
-                    <strong>{m.nickname}</strong>
-                    <small>申请加入房间</small>
-                  </div>
-                  <button
-                    className="icon-button"
-                    disabled={!p.connected}
-                    aria-label={`批准 ${m.nickname}`}
-                    onClick={() => p.run(p.manage('approve', m.id))}
-                  >
-                    <IconCheck size={18} />
-                  </button>
-                  <button
-                    className="icon-button danger"
-                    disabled={!p.connected}
-                    aria-label={`拒绝 ${m.nickname}`}
-                    onClick={() => p.run(p.manage('deny', m.id))}
-                  >
-                    <IconX size={18} />
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
           <p className="muted">最多 8 人。只有通过批准的成员可以观看和聊天。</p>
         </div>
       )}

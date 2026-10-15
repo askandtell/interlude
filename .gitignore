@@ -40,3 +40,11 @@ yarn-error.log*
 /public/art/*.png
 
 /deploy/*.local.yaml
+
+# Credentials, private certificates and local logs
+*.pem
+*.p12
+*.pfx
+*.key
+*.log
+/secrets/
