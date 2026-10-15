@@ -1767,3 +1767,12 @@ p {
     font-size: 14px;
   }
 }
+.connection-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 44px;
+  color: #b5b7b8;
+  font-size: 14px;
+}

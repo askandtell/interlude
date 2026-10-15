@@ -4,6 +4,8 @@ This is an early implementation, not an audited public service. Report vulnerabi
 
 ## Trust boundaries
 
+Small rooms now default to direct WebRTC. Approved peers may learn each other's public network addresses. Hosts can choose relay before watching. Signaling revalidates approval, destination, room/media generations and per-connection nonce pairs; bounded SDP/ICE is forwarded without logging or persistence. See [hybrid media](HYBRID_MEDIA.md). No paid TURN credentials are embedded in the direct route.
+
 The host can transmit any movie pixels/audio; approved guests can view and capture them. Browser security cannot prevent a permitted guest from recording. An invitation is a bearer secret, but admission remains manual. With no personal accounts, a kicked person can create a new browser identity and apply again if given another invitation; the host must approve it. Do not claim person-level identity bans.
 
 HTTP/WebSocket use TLS in production; LiveKit uses WebRTC transport encryption. **No end-to-end encryption is claimed**: SFU operators are in the trust boundary. Never deploy recording/egress or packet-capture services in the default installation. Logging must not include session cookies, invite fragments, credentials, subtitles, chat contents, file paths, SDP or ICE payloads.
@@ -21,7 +23,7 @@ HTTP/WebSocket use TLS in production; LiveKit uses WebRTC transport encryption. 
 
 ## Operational requirements
 
-Use HTTPS APP_ORIGIN and WSS LIVEKIT_URL; production refuses missing secrets/Redis/media readiness. Generate separate secrets per environment. Keep Redis and the LiveKit administrative port on a private network. Public signaling must go through the TLS reverse proxy. TURN needs valid certificates, ephemeral credentials, firewall rules and network testing; opening HTTPS alone does not prove connectivity.
+Use HTTPS APP_ORIGIN and WSS LIVEKIT_URL; production refuses missing secrets or unavailable Redis. An unavailable relay is reported through health and does not prevent direct-only rooms from starting. Generate separate secrets per environment. Keep Redis and the LiveKit administrative port on a private network. Public signaling must go through the TLS reverse proxy. TURN needs valid certificates, ephemeral credentials, firewall rules and network testing; opening HTTPS alone does not prove connectivity.
 
 The supplied development config advertises 127.0.0.1 and must **not** be published. Public deployment needs real advertised addresses and TURN/TLS configuration from LiveKit's current deployment guide. The control service runs a single replica. Behind a reverse proxy, the current IP limits conservatively count the proxy as one source; don't increase trust of arbitrary X-Forwarded-For values. Configure a restricted trusted proxy policy before a public multi-user deployment.
 

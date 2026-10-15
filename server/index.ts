@@ -13,12 +13,12 @@ const media = new MediaService(process.env.LIVEKIT_API_SECRET ? {
   url: mediaUrl, internalUrl,
   key: process.env.LIVEKIT_API_KEY || 'devkey', secret: process.env.LIVEKIT_API_SECRET,
 } : undefined);
-if (production && (!(await media.ping()) || !(await repository.ping()))) throw new Error('Dependencies unavailable; refusing production startup');
+if (production && !(await repository.ping())) throw new Error('Storage unavailable; refusing production startup');
 const runtime = createApplication({ repository, media, origin, production, secret: process.env.SESSION_SECRET || secret(48), staticDir: 'build' });
 await runtime.rooms.recover();
 runtime.http.listen(Number(process.env.PORT || 18080), host, () => {
   console.log(`Interlude control service: http://${process.env.HOST || '127.0.0.1'}:${process.env.PORT || 18080}`);
   if (!process.env.REDIS_URL) console.log('Development memory store; rooms do not survive restart.');
-  if (!media.config) console.log('LiveKit is not configured. Room controls work; movie/voice publishing is unavailable.');
+  if (!media.config) console.log('LiveKit relay is not configured. Small rooms can try direct media; relay fallback is unavailable.');
 });
 for (const signal of ['SIGINT','SIGTERM']) process.on(signal, () => { void runtime.close().finally(() => process.exit(0)); });

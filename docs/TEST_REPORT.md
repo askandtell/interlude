@@ -105,3 +105,15 @@ npm run test:e2e -- --grep 'continuous real-media soak'
 - 格式、类型检查与生产构建通过。此次未在实际内置浏览器复测断网重连、跨网络或 8 人收流，不能将初始连接成功视为这些验收通过。
 
 参考：[MDN setConfiguration](https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/setConfiguration) 与本地锁定版本的 LiveKit RTCEngine、PCTransport 源码。
+
+## 混合直连与转发增量验收（2026-10-15）
+
+新房间默认 1—3 名在线已批准成员直连，4 人起转发；失败迁移、暂停时回切、手动选择转发已接入真实播放器。实现和隐私边界见 [HYBRID_MEDIA.md](HYBRID_MEDIA.md)。
+
+- 64 项单元、HTTP、权限与真实 Redis 测试通过。新增覆盖第四人上线、冻结实际进度、保持失败回退、防反复切换、仅房主可重试、用户暂停取消恢复意图、纯直连移除不依赖云服务，以及信令目标、nonce、代次、未批准成员、重复标签页、过大 SDP 与踢出后的拒绝。
+- 本轮浏览器用例合计 29 项通过、1 项两小时长测未执行。按不同文件分批运行；旧进程中重复运行触发 20 房间/小时限流的 9 项，用新的本地控制进程重跑全部通过，没有修改产品限流。
+- 新增 4 项真实媒体场景：房主加两个观看者经原生 P2P 收到持续解码画面，电影音轨非静音、语音分轨、暂停传播，并确认没有 `/media-token` 请求；一次真实直连协商失败后，自动接上真实 LiveKit，保持原文件并恢复画面；第 4 人上线触发全房间转发，已观看成员重新收到画面；暂停时来回切换保留位置，保持暂停，重新点击可继续。失败注入只拦截首个直连 offer，转发仍使用实际 LiveKit。
+- 原有真实 SFU 音画、8 人收流、MP4/WebM/MKV/无音轨、损坏文件、字幕像素、刷新、重连、自动播放受阻、设备权限、界面与视频网站桥接回归通过。界面截图 `artifacts/hybrid-direct.png`、`artifacts/hybrid-fallback.png` 已人工查看。
+- 类型检查、生产构建、格式检查通过；官方 npm registry 依赖审计为 0 漏洞。构建仍有现有编码器与媒体 SDK 大包提示。
+- 环境为同一 Windows 主机的独立 Chromium 上下文、原生 LiveKit 与本地 Redis；不是跨运营商测试。本次没有新增公网链接，没有验证真实手机、国内 STUN 可达性、UDP 全阻断、TURN-only 或两小时运行。P2P 另用实际画面中的 30fps 条码时间码，同时读取房主和两个观看者，20 次样本的最大画面差 P95 为 66.7ms，达到本地 500ms 目标；原始数据 artifacts/direct-render-skew.json。此结果不能外推到公网直连。
+- 没有购买、绑卡、升级套餐或实现账单级硬限额。成功直连不连接 LiveKit；转发仍受所用服务的实际免费额度约束。
