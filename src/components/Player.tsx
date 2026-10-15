@@ -108,7 +108,7 @@ export function Player(p: Props) {
     : media.state === 'autoplay-blocked'
       ? '需要点击恢复播放'
       : !isConnected
-        ? ['connecting', 'reconnecting', 'signalReconnecting'].includes(media.state)
+        ? ['connecting', 'reconnecting', 'signalReconnecting', 'migrating'].includes(media.state)
           ? '正在连接媒体'
           : '媒体未连接'
         : host

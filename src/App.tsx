@@ -128,7 +128,17 @@ export default function App() {
     volume: filmVolume,
     onError: error,
   });
-  const media = usePlaybackConnection(room, connected, movie, film.source, error);
+  const media = usePlaybackConnection(
+    room,
+    connected,
+    movie,
+    film.source,
+    error,
+    roomSession.socket,
+    roomSession.accept,
+    roomSession.control,
+    quality,
+  );
   resetMedia.current = media.disconnect;
   const control = useCallback(
     async (value: PlaybackCommand) => {
@@ -220,6 +230,8 @@ export default function App() {
     } catch {}
     if (movie.current) movie.current.volume = filmVolume;
     media.transport.current?.setVoiceVolume(voiceVolume);
+    if ('setSinkId' in HTMLMediaElement.prototype)
+      void media.transport.current?.outputDevice(outputId || 'default').catch(error);
   }, [filmVolume, voiceVolume, deviceId, outputId, media.state, media.transport]);
   useEffect(() => {
     const playback = room?.playback,
@@ -385,24 +397,41 @@ export default function App() {
       )
         throw new Error('影片或房间已变化，请重新开始');
     };
-    const transport = await media.ensure();
-    valid();
-    transport.setVoiceVolume(voiceVolume);
-    if (outputId && 'setSinkId' in HTMLMediaElement.prototype)
-      await transport.outputDevice(outputId);
-    await transport.resumeAudio();
-    valid();
-    if (host && source) {
-      try {
-        const stream = await source.stream(quality);
-        valid();
-        await transport.publish(stream, quality);
-        await control({ kind: 'play' });
-      } catch (e) {
-        source.pause();
-        await media.disconnect();
-        throw e;
+    const migrated = () => {
+      const next = roomSession.current.current;
+      return (
+        !!view &&
+        next?.id === view.id &&
+        next.hostId === view.hostId &&
+        next.mediaEpoch === view.mediaEpoch &&
+        next.selfStatus === 'approved' &&
+        next.delivery.mode !== view.delivery.mode &&
+        film.source.current === source
+      );
+    };
+    try {
+      const transport = await media.ensure();
+      valid();
+      transport.setVoiceVolume(voiceVolume);
+      if (outputId && 'setSinkId' in HTMLMediaElement.prototype)
+        await transport.outputDevice(outputId);
+      await transport.resumeAudio();
+      valid();
+      if (host && source) {
+        try {
+          const stream = await source.stream(quality);
+          valid();
+          await transport.publish(stream, quality);
+          await control({ kind: 'play' });
+        } catch (e) {
+          if (migrated()) return;
+          source.pause();
+          await media.disconnect();
+          throw e;
+        }
       }
+    } catch (e) {
+      if (!migrated()) throw e;
     }
   }
   async function leave() {
@@ -663,7 +692,28 @@ export default function App() {
                   请稍后重试连接，暂时无法开始新的放映。
                 </Alert>
               )}
-              {health && !health.media && (
+              <div className="connection-notice" role="status">
+                {room.delivery.mode === 'direct' ? '优先直连 · 最多 3 人' : '云端转发'}
+                {room.delivery.reason === 'direct-failed' && ' · 直连未成功，已切换'}
+                {room.delivery.reason === 'size' && ' · 多人放映'}
+                {host && room.delivery.mode === 'direct' && (
+                  <button
+                    className="text-button"
+                    onClick={() => run(control({ kind: 'use-relay' }))}
+                  >
+                    改用转发
+                  </button>
+                )}
+                {host && room.delivery.mode === 'relay' && room.playback.paused && (
+                  <button
+                    className="text-button"
+                    onClick={() => run(control({ kind: 'retry-direct' }))}
+                  >
+                    重试直连
+                  </button>
+                )}
+              </div>
+              {health && !health.media && room.delivery.mode === 'relay' && (
                 <Alert color="yellow" title="媒体服务暂不可用">
                   <div className="health-notice">
                     <span>视频与语音暂时无法连接，请联系房间管理员或稍后重试。</span>

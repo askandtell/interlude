@@ -18,6 +18,10 @@ export interface RealtimeTransport {
   disconnect(): Promise<void>;
 }
 export class LiveTransport implements RealtimeTransport {
+  readonly kind = 'relay' as const;
+  get state() {
+    return this.room.state;
+  }
   // Offer-with-join updates an existing peer's configuration. Some embedded browsers
   // reject even a no-op update; LiveKit's dual-peer path creates peers after joining.
   room = new Room({

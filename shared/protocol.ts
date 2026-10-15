@@ -1,3 +1,4 @@
+import type { Delivery } from './peer';
 import { z } from 'zod';
 import { websiteSource } from './website';
 export const nicknameSchema = z.string().trim().min(1).max(24).refine(v => !/[\u0000-\u001f\u007f<>]/.test(v), '昵称含不支持的字符');
@@ -9,6 +10,8 @@ export const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('seek'), position: z.number().finite().min(0).max(864000) }),
   z.object({ kind: z.literal('source'), title: z.string().min(1).max(180), duration: z.number().finite().positive().max(864000) }),
   z.object({ kind: z.literal('website'), url: z.string().max(2048).transform((v, ctx) => { try { return websiteSource(v).url; } catch (e) { ctx.addIssue({code:'custom', message:(e as Error).message}); return z.NEVER; } }) }).strict(),
+  z.object({ kind: z.literal('retry-direct') }).strict(),
+  z.object({ kind: z.literal('use-relay') }).strict(),
   z.object({ kind: z.literal('stop') }), z.object({ kind: z.literal('ended') }),
 ]);
 export const envelopeSchema = z.object({ id: z.string().uuid(), roomId: idSchema, epoch: z.number().int().nonnegative(), revision: z.number().int().nonnegative(), command: commandSchema }).strict();
@@ -19,6 +22,7 @@ export interface ChatMessage { id: string; memberId: string; nickname: string; t
 export interface PlaybackState { website?: { provider: string; url: string }; title: string; duration: number; position: number; paused: boolean; updatedAt: number; available: boolean; }
 export interface RoomView {
   id: string; title: string; hostId: string; selfId: string; selfStatus: MemberView['status'];
+  delivery: Delivery;
   revision: number; mediaEpoch: number; transportEpoch: number; mediaDegraded: boolean; closed: boolean; createdAt: number;
   hostState: 'online' | 'reconnecting' | 'waiting'; members: MemberView[]; pending: MemberView[];
   playback: PlaybackState; chat: ChatMessage[]; serverNow: number;

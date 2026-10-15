@@ -1,5 +1,5 @@
 import { expect, type Page, type Browser } from '@playwright/test';
-export async function createHost(page: Page) {
+export async function createHost(page: Page, delivery: 'direct' | 'relay' = 'relay') {
   await page.goto('/');
   await page.getByRole('button', { name: '创建放映室', exact: true }).click();
   const modal = page.getByRole('dialog');
@@ -16,6 +16,11 @@ export async function createHost(page: Page) {
   ).toBe(201);
   const data = await response.json();
   await expect(page.getByRole('button', { name: '选择本地影片', exact: true })).toBeEnabled();
+  // Existing media regressions explicitly exercise the SFU; hybrid tests opt into the default path.
+  if (delivery === 'relay') {
+    await page.getByRole('button', { name: '改用转发', exact: true }).click();
+    await expect(page.locator('.connection-notice')).toContainText('云端转发');
+  }
   return data as { room: { id: string }; invite: string };
 }
 export async function admit(

@@ -1,3 +1,4 @@
+import { PeerBroker } from './peers';
 import express, { type ErrorRequestHandler } from 'express';
 import { createServer } from 'node:http';
 import helmet from 'helmet';
@@ -68,7 +69,7 @@ export function createApplication(options: AppOptions) {
   });
   app.post('/api/rooms/:id/media-token', async (req, res) => {
     limits.take(`media:${hash(res.locals.session)}`, 20);
-    res.json(await rooms.transaction(String(req.params.id), async r => { rooms.open(r); const m = rooms.member(r, res.locals.session, true); if (r.retiredRooms.length) throw new AppError('MEDIA_RETIRING', '正在关闭旧媒体连接，完成后才能重新观看', 503); return media.credentials(r, m.id); }));
+    res.json(await rooms.transaction(String(req.params.id), async r => { rooms.open(r); const m = rooms.member(r, res.locals.session, true); if (r.retiredRooms.length) throw new AppError('MEDIA_RETIRING', '正在关闭旧媒体连接，完成后才能重新观看', 503); if(r.delivery?.mode==='direct')throw new AppError('DIRECT_MODE','当前使用直连，无需转发凭证',409); return media.credentials(r, m.id); }));
   });
   app.post('/api/rooms/:id/leave', async (req, res) => { await rooms.presence(String(req.params.id), res.locals.session, false); res.json({ ok: true }); });
   app.use('/api', (_req, res) => { res.status(404).json({ code: 'NOT_FOUND', error: '接口不存在' }); });
@@ -85,8 +86,9 @@ export function createApplication(options: AppOptions) {
     } catch (e) { next(new Error(e instanceof AppError ? e.message : '无法进入房间')); }
   });
   const errorValue = (e: unknown) => e instanceof AppError ? { ok: false, code: e.code, error: e.message } : e instanceof z.ZodError ? { ok: false, code: 'INVALID_INPUT', error: '输入格式不正确' } : { ok: false, code: 'SERVICE_UNAVAILABLE', error: '服务暂时不可用，请稍后再试' };
+  const peers = new PeerBroker(rooms,io);
   rooms.retire = name => media.retire(name);
-  rooms.changed = id => { for (const socket of io.sockets.sockets.values()) if (socket.data.roomId === id) {
+  rooms.changed = id => { void peers.prune(id).catch(()=>{}); for (const socket of io.sockets.sockets.values()) if (socket.data.roomId === id) {
     void rooms.snapshot(id, socket.data.session).then(view => { socket.emit('snapshot', view); if (view.closed || view.selfStatus === 'denied') socket.disconnect(true); }).catch(() => { socket.emit('revoked'); socket.disconnect(true); });
   } };
   io.on('connection', socket => {
@@ -96,11 +98,15 @@ export function createApplication(options: AppOptions) {
       if (typeof ack !== 'function') return;
       try { limits.take(`events:${key}`, 180); ack({ ok: true, value: await fn(data) }); } catch (e) { ack(errorValue(e)); }
     });
+    handle('peer-ready', data => peers.join(socket,data));
+    handle('peer-signal', data => { limits.take(`peer-signals:${key}`,120); return peers.signal(socket,data); });
+    handle('peer-fallback', data => { limits.take(`peer-fallback:${key}`,2,30000); return peers.fallback(socket,data); });
+    handle('peer-leave', async () => { peers.leave(socket); return {}; });
     handle('command', data => { const e = envelopeSchema.parse(data); if (e.roomId !== roomId) throw new AppError('FORBIDDEN', '无法控制其他房间', 403); limits.take(`command:${key}`, 45); return rooms.command(session, e); });
     handle('chat', data => { const input = z.object({ text: z.string().trim().min(1).max(1000) }).strict().parse(data); limits.take(`chat:${key}`, 20); return rooms.message(roomId, session, input.text); });
     handle('pause-request', () => { limits.take(`pause:${key}`, 1, 5000); return rooms.message(roomId, session, '等我一下，想暂停一会儿', true); });
     handle('heartbeat', () => rooms.presence(roomId, session, true));
-    socket.on('disconnect', () => { if (![...io.sockets.sockets.values()].some(s => s.data.key === key)) void rooms.presence(roomId, session, false).catch(() => {}); });
+    socket.on('disconnect', () => { peers.leave(socket); if (![...io.sockets.sockets.values()].some(s => s.data.key === key)) void rooms.presence(roomId, session, false).catch(() => {}); });
   });
   if (options.staticDir) { app.use(express.static(options.staticDir, { index: false, maxAge: '1h' })); app.get(/^\/(?!api(?:\/|$)|socket\.io(?:\/|$)).*/, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.resolve(options.staticDir!, 'index.html')); }); }
   const errors: ErrorRequestHandler = (e, _req, res, _next) => { res.status(e instanceof AppError ? e.status : e instanceof z.ZodError ? 400 : (e as { status?: number }).status === 413 ? 413 : 503).json(errorValue(e)); };

@@ -15,11 +15,13 @@
 1. 用户完成 LiveKit、Render 账号登录、注册条款与邮箱验证。只使用免费个人套餐，不绑定支付方式。
 2. 将完整 Git 历史与应用改动推送到独立私有仓库。Render GitHub 集成仅授权此仓库，不能用不相关仓库或将 GitHub 个人访问令牌交给托管商。
 3. Render 使用该仓库的 `render.yaml` 创建 Blueprint。服务清单必须全部为 Free。填入 LiveKit 的三项服务端变量；SESSION_SECRET 自动生成。
-4. 构建完成后检查 HTTPS 主页、Secure/HttpOnly/SameSite 会话、严格 Origin、Socket.IO、健康状态。没有健康的媒体管理连接时应用拒绝生产启动。
+4. 构建完成后检查 HTTPS 主页、Secure/HttpOnly/SameSite 会话、严格 Origin、Socket.IO、健康状态。Redis 不可用时拒绝生产启动；媒体管理连接不可用时允许直连，并明确显示转发暂不可用。
 5. 给 LiveKit 配置签名 webhook，地址为 `https://实际平台网址/api/livekit/webhook`，签名 key 选择本项目使用的 API key。周期检查仍作为补充保护。
 6. 用真实公网链接进行至少两名参与者收流、实际解码音画、暂停、跳转与移除成员验证；然后测试真实手机、不同运营商与强制 TURN。打开主页不算完成部署验收。
 
 ## 免费限制与费用边界
+
+小房间现在优先直连，成功直连不申请 LiveKit 凭证，只有失败或 4 人以上时才消耗转发额度。直连仍需要控制服务与网络可达性，无法免除所有托管限制；具体阈值、切换与 IP 隐私见[混合媒体说明](HYBRID_MEDIA.md)。不自动购买资源，也没有账单级硬限额实现。
 
 Render 免费 Web Service 闲置 15 分钟会休眠，首次唤醒约一分钟。免费 Key Value 无磁盘持久化；平台可重启服务。耗尽免费实例小时或未绑定支付方式情况下耗尽带宽，会暂停服务；不自动升级规格。不要通过外部保活伪装真实用户或规避平台规则。
 

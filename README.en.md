@@ -1,6 +1,6 @@
 # Interlude / 幕间
 
-A private, browser-first cinema for 2–8 friends. Choose a local film, invite your friends, approve their seats, and watch together with text and opt-in voice chat. Local files are never uploaded for permanent storage; a self-hosted LiveKit SFU forwards the real-time media.
+A private, browser-first cinema for 2–8 friends. Choose a local film, invite your friends, approve their seats, and watch together with text and opt-in voice chat. Local files are never uploaded for permanent storage. Up to three online members use direct WebRTC first; failed direct connections or four or more members use LiveKit. Migration preserves the file, briefly pauses playback and closes the microphone. See [hybrid media behavior and privacy](docs/HYBRID_MEDIA.md). Cloud fallback still depends on available quota; free, unlimited service is not promised.
 
 ![Interlude actual browser interface](docs/design/implemented-home.png)
 

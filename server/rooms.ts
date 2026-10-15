@@ -1,3 +1,4 @@
+import { DIRECT_LIMIT, type Delivery } from '../shared/peer';
 import { websiteSource } from '../shared/website';
 import { randomUUID } from 'node:crypto';
 import type { Repository } from './store.ts';
@@ -8,7 +9,7 @@ export interface RoomRecord {
   id: string; title: string; createdAt: number; hostId: string; revision: number; mediaEpoch: number; transportEpoch: number;
   closed: boolean; inviteHash: string; inviteUntil: number; members: Member[]; playback: PlaybackState;
   chat: ChatMessage[]; seen: { id: string; at: number }[]; hostOfflineAt?: number; emptySince?: number;
-  retiredRooms: string[];
+  retiredRooms: string[]; delivery?: Delivery;
 }
 const DAY = 86400000;
 export const mediaRoomName = (r: Pick<RoomRecord, 'id' | 'transportEpoch'>) => `interlude-${r.id}-${r.transportEpoch}`;
@@ -17,11 +18,11 @@ export class Rooms {
   changed: (id: string) => void = () => {};
   retire: (name: string) => Promise<void> = async () => {};
   constructor(public repository: Repository, public now = Date.now) {}
-  async transaction<T>(id: string, fn: (room: RoomRecord) => T | Promise<T>): Promise<T> {
+  async transaction<T>(id: string, fn: (room: RoomRecord) => T | Promise<T>, write = true): Promise<T> {
     const previous = this.locks.get(id) || Promise.resolve();
     const work = previous.catch(() => {}).then(async () => {
       const room = await this.load(id); const result = await fn(room);
-      await this.save(room); this.changed(id); return result;
+      if (write) { await this.save(room); this.changed(id); } return result;
     });
     this.locks.set(id, work); try { return await work; } finally { if (this.locks.get(id) === work) this.locks.delete(id); }
   }
@@ -38,7 +39,7 @@ export class Rooms {
     const now = this.now(), invite = secret();
     const member: Member = { id: secret(16), session: hash(session), nickname, status: 'approved', online: false, lastSeen: now };
     const r: RoomRecord = { id: secret(16), title, createdAt: now, hostId: member.id, revision: 0, mediaEpoch: 0, transportEpoch: 0,
-      closed: false, inviteHash: hash(invite), inviteUntil: now + 7200000, members: [member], chat: [], seen: [], retiredRooms: [],
+      delivery: {mode:'direct',reason:'small-room',resume:false,since:now}, closed: false, inviteHash: hash(invite), inviteUntil: now + 7200000, members: [member], chat: [], seen: [], retiredRooms: [],
       emptySince: now, hostOfflineAt: now, playback: { title: '', duration: 0, position: 0, paused: true, updatedAt: now, available: false } };
     await this.save(r); return { room: this.view(r, session), invite };
   }
@@ -57,7 +58,7 @@ export class Rooms {
     const visible = (m: Member): MemberView => ({ id: m.id, nickname: m.nickname, status: m.status, online: m.online && this.now() - m.lastSeen < 45000 });
     const offline = r.hostOfflineAt === undefined ? 0 : this.now() - r.hostOfflineAt;
     return { id: r.id, title: r.title, selfId: me.id, selfStatus: me.status, hostId: r.hostId, revision: r.revision,
-      mediaEpoch: r.mediaEpoch, transportEpoch: r.transportEpoch, mediaDegraded: r.retiredRooms.length > 0, closed: r.closed, createdAt: r.createdAt,
+      delivery: approved ? r.delivery || {mode:'relay',reason:'legacy',resume:false,since:r.createdAt} : {mode:'direct',reason:'small-room',resume:false,since:0}, mediaEpoch: r.mediaEpoch, transportEpoch: r.transportEpoch, mediaDegraded: r.retiredRooms.length > 0 && r.delivery?.mode !== 'direct', closed: r.closed, createdAt: r.createdAt,
       hostState: !offline ? 'online' : offline < 60000 ? 'reconnecting' : 'waiting', serverNow: this.now(),
       members: approved ? r.members.filter(m => m.status === 'approved').map(visible) : [],
       pending: approved && me.id === r.hostId ? r.members.filter(m => m.status === 'pending').map(visible) : [],
@@ -68,13 +69,14 @@ export class Rooms {
     return this.transaction(id, r => {
       const m = this.member(r, session); m.online = online; m.lastSeen = this.now();
       if (m.id === r.hostId) { if (online) r.hostOfflineAt = undefined; else if (r.hostOfflineAt === undefined) { r.hostOfflineAt = this.now(); this.freeze(r); } }
+      this.reconcileDelivery(r);
       const anyOnline = r.members.some(m => m.online && m.status === 'approved' && this.now() - m.lastSeen < 45000);
       r.emptySince = anyOnline ? undefined : r.emptySince ?? this.now();
       return this.view(r, session);
     });
   }
   freeze(r: RoomRecord) { if (!r.playback.paused) r.playback.position = Math.min(r.playback.duration, r.playback.position + (this.now() - r.playback.updatedAt) / 1000); r.playback.paused = true; r.playback.available = false; r.playback.updatedAt = this.now(); r.revision++; }
-  rotateMedia(r: RoomRecord) { r.retiredRooms.push(mediaRoomName(r)); r.transportEpoch++; r.revision++; }
+  rotateMedia(r: RoomRecord) { if(r.delivery?.mode !== 'direct') r.retiredRooms.push(mediaRoomName(r)); r.transportEpoch++; r.revision++; }
   async manage(id: string, session: string, action: 'approve' | 'deny' | 'kick' | 'transfer' | 'rotate' | 'end', target?: string) {
     const result = await this.transaction(id, r => {
       this.open(r); this.owner(r, session); let invite: string | undefined;
@@ -86,6 +88,7 @@ export class Rooms {
       if (action === 'transfer') { if (m!.status !== 'approved' || !m!.online) throw new AppError('INVALID_MEMBER', '请选择在线成员'); r.hostId = m!.id; this.freeze(r); r.mediaEpoch++; this.rotateMedia(r); }
       if (action === 'rotate' || action === 'kick') { invite = secret(); r.inviteHash = hash(invite); r.inviteUntil = this.now() + 7200000; }
       if (action === 'end') { r.closed = true; r.inviteHash = hash(secret()); this.freeze(r); this.rotateMedia(r); r.chat = []; }
+      this.reconcileDelivery(r);
       r.revision++; return { room: this.view(r, session), invite };
     });
     await this.cleanupRetired(id); return result;
@@ -97,12 +100,15 @@ export class Rooms {
       if (r.seen.some(v => v.id === e.id)) return this.view(r, session);
       if (e.epoch !== r.mediaEpoch || e.revision !== r.revision) throw new AppError('STALE_STATE', '房间状态已变化，请重试', 409);
       const c = e.command, p = r.playback, now = this.now();
-      if (c.kind === 'website') { const website = websiteSource(c.url); r.mediaEpoch++; r.playback = { title: website.provider + ' · 网站一起看', website, duration: 864000, position: 0, paused: true, available: true, updatedAt: now }; }
+      if (r.delivery && c.kind !== 'use-relay' && c.kind !== 'retry-direct') r.delivery.resume = false;
+      if (c.kind === 'retry-direct') { if (!p.paused) throw new AppError('PAUSE_FIRST','请先暂停再重试直连'); if (this.onlineCount(r) > DIRECT_LIMIT) throw new AppError('TOO_MANY_PEERS','直连最多支持 3 人，当前继续使用转发'); this.setDelivery(r,'direct','manual'); }
+      else if (c.kind === 'use-relay') { this.setDelivery(r,'relay','manual'); }
+      else if (c.kind === 'website') { const website = websiteSource(c.url); r.mediaEpoch++; r.playback = { title: website.provider + ' · 网站一起看', website, duration: 864000, position: 0, paused: true, available: true, updatedAt: now }; }
       else if (c.kind === 'source') { r.mediaEpoch++; r.playback = { title: c.title.replace(/[\u0000-\u001f]/g, ''), duration: c.duration, position: 0, paused: true, available: true, updatedAt: now }; }
       else {
         if (!p.title && c.kind !== 'stop') throw new AppError('NO_SOURCE', '请先选择影片');
         if (!p.paused) p.position = Math.min(p.duration, p.position + (now - p.updatedAt) / 1000);
-        if (c.kind === 'play') { p.paused = false; p.available = true; }
+        if (c.kind === 'play') { if (r.delivery) r.delivery.resume = false; p.paused = false; p.available = true; }
         if (c.kind === 'pause') p.paused = true;
         if (c.kind === 'seek') p.position = Math.min(c.position, p.duration);
         if (c.kind === 'stop') { this.freeze(r); r.mediaEpoch++; }
@@ -110,6 +116,25 @@ export class Rooms {
         p.updatedAt = now;
       }
       r.revision++; r.seen.push({ id: e.id, at: now }); r.seen = r.seen.slice(-256); return this.view(r, session);
+    });
+  }
+  onlineCount(r: RoomRecord) { return r.members.filter(m => m.status === 'approved' && m.online && this.now()-m.lastSeen < 45000).length; }
+  setDelivery(r: RoomRecord, mode: Delivery['mode'], reason: Delivery['reason']) {
+    if ((r.delivery?.mode || 'relay') === mode) return;
+    const resume = r.playback.available && !r.playback.paused;
+    this.freeze(r);
+    if (r.delivery?.mode !== 'direct') this.rotateMedia(r); else {r.transportEpoch++; r.revision++;}
+    r.delivery = {mode,reason,resume,since:this.now()};
+  }
+  reconcileDelivery(r: RoomRecord) {
+    if (r.closed) return;
+    if (this.onlineCount(r)>DIRECT_LIMIT) this.setDelivery(r,'relay','size');
+    else if(r.delivery?.mode==='relay' && r.delivery.reason==='size' && r.playback.paused && this.now()-r.delivery.since>=30000) this.setDelivery(r,'direct','small-room');
+  }
+  async directFailed(id: string, session: string, epoch: number, mediaEpoch: number) {
+    return this.transaction(id,r=>{this.open(r);this.member(r,session,true);
+      if(r.transportEpoch!==epoch || r.mediaEpoch!==mediaEpoch) throw new AppError('STALE_STATE','媒体连接已变化');
+      this.setDelivery(r,'relay','direct-failed');return this.view(r,session);
     });
   }
   async message(id: string, session: string, text: string, pauseRequest = false) {
