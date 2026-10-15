@@ -14,6 +14,8 @@
 # misc
 .DS_Store
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -25,3 +27,16 @@ yarn-error.log*
 
 .theia
 .eslintcache
+
+# Local runtime, media fixtures and verification output
+/.cache/
+/test-results/
+/playwright-report/
+/artifacts/
+/node_modules/
+/coverage/
+/deploy/livekit.local.yaml
+/deploy/livekit.production.yaml
+/public/art/*.png
+
+/deploy/*.local.yaml

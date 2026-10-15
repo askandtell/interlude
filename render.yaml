@@ -1,0 +1,38 @@
+# Free hobby deployment. No paid fallback, persistent disk, or custom domain.
+services:
+  - type: web
+    name: interlude
+    runtime: node
+    plan: free
+    region: singapore
+    numInstances: 1
+    buildCommand: npm ci --registry=https://registry.npmjs.org && npm run build && npm prune --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: 24.15.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: interlude-rooms
+          property: connectionString
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+  - type: keyvalue
+    name: interlude-rooms
+    plan: free
+    region: singapore
+    maxmemoryPolicy: noeviction
+    ipAllowList: []

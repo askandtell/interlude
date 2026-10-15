@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "幕间 · 网站同步（实验性）",
+  "version": "0.1.0",
+  "description": "把幕间房间时间同步到你自己的官方播放页。不读取账号、不下载或转发视频。",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": [
+    "https://www.bilibili.com/*",
+    "https://v.youku.com/*",
+    "https://www.iqiyi.com/*",
+    "https://v.qq.com/*"
+  ],
+  "background": { "service_worker": "worker.js" },
+  "action": { "default_popup": "popup.html" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'" }
+}

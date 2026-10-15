@@ -1,0 +1,10 @@
+cinema.example.com {
+    reverse_proxy 127.0.0.1:18080
+    header Referrer-Policy "no-referrer"
+    log {
+        output discard
+    }
+}
+rtc.example.com {
+    reverse_proxy 127.0.0.1:7880
+}

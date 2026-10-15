@@ -1,0 +1,10 @@
+.git
+node_modules
+.env*
+.cache
+artifacts
+test-results
+playwright-report
+deploy/*.local.yaml
+deploy/*.production.yaml
+docs/design

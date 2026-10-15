@@ -1,84 +1,92 @@
-# WatchParty
+# 幕间 · Interlude
 
-![screenshot](https://github.com/howardchung/watchparty/raw/master/public/screenshot_full.png)
+**和在意的人，看同一场电影。**
 
-A website for watching videos together.
+浏览器优先的好友私人放映室。房主选择本地影片，朋友通过私密邀请申请入座；文字、语音与电影分轨传输，影片不作为文件上传保存。
 
-## Description
+> v0.1 本地可运行版本，尚未通过公网、TURN-only、真实手机及两小时连续播放验收。公开运营前请阅读 [安全说明](docs/SECURITY.md) 和 [验证报告](docs/TEST_REPORT.md)。
 
-- Synchronizes the video being watched with the current room
-- Plays, pauses, and seeks are synced to all watchers
-- Supports:
-  - Screen sharing (full screen, browser tab or application)
-  - Launch a shared virtual browser in the cloud (similar to rabb.it)
-  - Stream-your-own-file (optionally converted in your browser via WebCodecs, for formats browsers can't play)
-  - Video files on the Internet (anything accessible via HTTP)
-  - YouTube videos
-  - Magnet links (via WebTorrent)
-  - .m3u8 streams (HLS)
-- Create separate rooms for users on demand
-- Text chat
-- Video chat
+![Interlude actual browser interface](docs/design/implemented-home.png)
 
-## Quick Start
+![Interlude actual screening room](docs/design/implemented-room.png)
 
-- Clone this repo via `git clone git@github.com:howardchung/watchparty.git`
-- Install npm dependencies for the project via `npm install`
-- Start the server via `npm run dev`
-  - Defaults to port 8080, customize with `PORT` env var
-  - Set `SSL_KEY_FILE` and `SSL_CRT_FILE` for HTTPS.
-- Start the React application in a separate shell and port via `npm run ui`
-  - Point to server using `VITE_SERVER_HOST` env var if you customized it above
-  - Set `SSL_KEY_FILE` and `SSL_CRT_FILE` for HTTPS.
-  - HTTPS is required by the browser for some WebRTC features (camera, etc.)
-- Duplicate the `.env.example` file
-- Rename it to `.env`
-- Add config for the features you want as described in the advanced setup
+## 已实现
 
-## Advanced Setup (optional)
+- 2—8 人房间；免注册昵称、私密邀请、房主审批、移除成员、转交管理、结束房间。
+- 真实本地影片分享，经独立 LiveKit SFU 实时分发；没有模拟媒体服务。
+- 主持播放、暂停、跳转；UUID 去重、版本/媒体代次校验、重连快照。
+- 文字聊天、暂停请求、按需开启的语音、独立电影/朋友音量。
+- 文件内容预检；可选 WatchParty/Mediabunny 本地兼容转换；有界 SRT/VTT 纯文本字幕合成。
+- 浅色入口与深色放映室：创建／邀请／本机记录、统一播放控制、移动端聊天抽屉，无装饰图片与 3D 依赖。
+- 候选文件预检，失败／取消保留原影片；刷新后重新选片并确认续播，不自动恢复文件权限。
+- 共享字幕字号、时间偏移、自动换行；房主预览就是实际合成画面。
+- 主动麦克风检测、输入电平、测试音和能力受限的设备选择；关闭设置释放临时音轨。
+- 签名会话、CSRF/Origin 校验、媒体最小权限、踢人后媒体代次轮换、签名媒体通知和发布轨检查。
+- Redis TTL 存储；仅开发环境可使用内存存储；Docker Compose、CI、安全与部署文档。
 
-All of these are optional and the application should work without them. Some functionality may be missing.
+## 快速开始
 
-### YouTube API (video search)
+需要 Node.js 24+、npm，以及 Docker 或原生 LiveKit Server。
 
-This project uses the YouTube API for video search, which requires an API key. You can get one from Google [here](https://console.developers.google.com).
+```sh
+npm ci
+node scripts/setup-dev.mjs
+npm run infra
+```
 
-Without an API key you won't be able to search for videos via the searchbox.
+再打开两个终端：
 
-After creating a **YouTube Data API V3** access, you can create an API key which you can add to your environment variables by copying the `.env.example`, renaming it to `.env` and adding the key to the YOUTUBE_API_KEY variable.
+```sh
+npm run dev
+npm run ui
+```
 
-After that restart your server to enable the YouTube API access on your server.
+打开 **http://127.0.0.1:15173**。必须使用这个 Origin；不要混用 localhost。本机开发的 Redis 可选，Compose Redis 默认不对宿主机开放；不配置 REDIS_URL 时使用开发内存存储。完整容器版使用 `docker compose up --build`，访问 **http://localhost:18080**。
 
-### Firebase Config (user authentication)
+如果没有 Docker，可运行 `livekit-server --config deploy/livekit.local.yaml`。生成的本地配置只适用于本机，不能直接用于公网。
 
-This project uses Firebase for authentication. This is used for user login, account management, subscriptions, and handling some features like room locking/permanence.
+## 一起看
 
-To set up, create a new Firebase app (or reuse an old one) from [here](https://console.firebase.google.com/). After creating an application, click on the settings cog icon in the left menu next to "Project overview" and click on project settings. From there, scroll down, create a web application and copy the Firebase SDK configuration snippet JSON data.
+1. 房主创建房间，用桌面 Chrome / Edge 选择本地影片。
+2. 点击「邀请朋友」复制链接；每次复制生成新邀请，先前的邀请随即失效。
+3. 朋友填写昵称，房主在「座位」页批准。
+4. 房主点击「开始放映」，朋友点击「开始观看」。麦克风默认关闭。
+5. 换片或刷新后需重新确认放映；本地文件不会自动转移给新房主。
 
-Next, you have to stringify it: `JSON.stringify(PASTE_CONFIG_HERE)` in your browser console, then add it to `VITE_FIREBASE_CONFIG` in your .env file.
+观看端接收实时流，不能独立拖动电影时间线。画质会受设备与网络影响；不保证所有 MKV/HEVC/音轨都可解码。具体版本支持以真实浏览器测试为准。
 
-For server verification of accounts you'll also need `FIREBASE_ADMIN_SDK_CONFIG`, which you should do the same steps for.
+字幕在播放器的「字幕设置」中载入；正时间偏移表示延后。续播提示仅使用本机标签页的文件元数据匹配，并要求确认，不证明两个文件内容相同。麦克风检测不会加入媒体房间；播放输出选择仅在浏览器支持且设备列表可读取时出现。
 
-### Virtual Browser Setup
+## 检查与测试
 
-This project supports creating virtual browsers (using https://github.com/m1k1o/neko) either on a cloud provider or with Docker containers. For development, Docker is easiest.
+```sh
+npm run check
+npm run test:e2e
+npm run test:media
+```
 
-- Install Docker: `curl -fsSL https://get.docker.com | sh`
-- Make sure you have an SSH key pair set up on the server (`id_rsa` in `~/.ssh` directory), if not, use `ssh-keygen`.
-- Configure `DOCKER_VM_HOST_SSH_USER` if `root` is not the correct user
-- Note: If your web client is not running on the same physical machine as the server, you will also need to configure `DOCKER_VM_HOST` to a publically-resolvable value (i.e. not localhost)
-- If you want to run managed instance pools (whether on cloud or with Docker), configure `VM_MANAGER_CONFIG` and run the vmWorker service.
+运行实际媒体端到端测试：启动本地 LiveKit、生成测试片后设置 `MEDIA_E2E=1` 并运行 `npm run test:e2e`。PowerShell 设置方式：`$env:MEDIA_E2E='1'`。测试浏览器需先执行 `npx playwright install chromium`，也可通过 PLAYWRIGHT_EXECUTABLE_PATH 使用已有浏览器。
 
-### Room Persistence
+## 开源来源
 
-- Configure Postgres by adding DATABASE_URL to your .env file and then setting up the database schema
-- This allows rooms to persist between server restarts
+主要派生自 [WatchParty](https://github.com/howardchung/watchparty)，保留完整上游历史和 MIT LICENSE；基线为 `2d366c1006b7b86228bcd7bb6debc111d857f51e`。保留并复用其本地转换模块，移除支付、云浏览器等功能，重新设计私密房间权限与界面。详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
-## Tech
+[架构](docs/ARCHITECTURE.md) · [部署](docs/DEPLOYMENT.md) · [安全](docs/SECURITY.md) · [English](README.en.md)
 
-- React
-- TypeScript
-- Node.js
-- Redis
-- PostgreSQL
-- Docker
+Jellyfin、原生电脑/手机客户端、个人独立字幕和端到端加密属于后续阶段，目前未实现。未创建 GitHub 仓库，也未公开部署。
+
+## 视频网站一起看（实验性）
+
+房间中可粘贴哔哩哔哩、优酷、爱奇艺、腾讯视频的官方播放页。每个人各自在官网登录观看，幕间同步时间和操作；不会把会员视频转发给没有权限的人。无扩展时手动对齐，Chrome／Edge 可加载仓库内同步扩展。四站真实账号适配仍待验收。安装步骤、权限、广告与兼容边界见 [视频网站使用说明](docs/WEBSITE_WATCH.md)。
+
+### 本地影片可预览但无法放映
+
+若提示媒体服务不可用，先启动独立 LiveKit：`npm run media:local`（保留此终端运行）。Windows 会优先使用 `.cache/livekit/livekit-server.exe`；其他环境使用 PATH 中的 livekit-server，也可用 LIVEKIT_BIN 指定。不要在已经运行媒体服务时重复启动。页面会在故障期间每 5 秒重新检查，恢复后手动重试播放，无需重新选片。此命令不下载程序、不修改密钥，也不启动 Redis 或控制服务。
+
+### 内置浏览器的 WebRTC 配置错误
+
+若浏览器拒绝 setConfiguration，幕间会通过实际能力检测选用 LiveKit 双连接初始化；正常浏览器保持默认模式。探针不会读取账号或申请麦克风。无法建立连接时保留影片并提供中文重试提示。实际 Codex 内置浏览器的初次放映及重新播放已验证；该环境的断网重连仍待验收。
+
+## 免费固定网址部署
+
+不购买域名和服务器的个人方案：Render 免费应用＋免费 Key Value，搭配 LiveKit Cloud Build 免费媒体额度，使用平台提供的 HTTPS 二级域名。`render.yaml` 已锁定 Free 规格，来源和限制见 [免费部署说明](docs/FREE_HOSTING.md)。实际网址及公网音画验收另行报告，不能把部署文件当成上线成功。

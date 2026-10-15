@@ -1,25 +1,3 @@
-import { loadEnvFile } from "node:process";
-import fs from "node:fs";
-
-try {
-  loadEnvFile();
-} catch (e) {
-  console.log(e);
-}
-
-export default {
-  build: {
-    outDir: "build",
-    // sourcemap: true,
-  },
-  server: {
-    https:
-      process.env.SSL_CRT_FILE && process.env.SSL_KEY_FILE
-        ? {
-            key: fs.readFileSync(process.env.SSL_KEY_FILE),
-            cert: fs.readFileSync(process.env.SSL_CRT_FILE),
-          }
-        : null,
-    allowedHosts: true,
-  },
-};
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+export default defineConfig({ plugins: [react()], build: { outDir: 'build', sourcemap: false }, server: { host: '127.0.0.1', port: 15173, strictPort: true, proxy: { '/api': 'http://127.0.0.1:18080', '/socket.io': { target: 'http://127.0.0.1:18080', ws: true } } } });

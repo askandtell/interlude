@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    init: true
+    ports: ["127.0.0.1:18080:18080"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 18080
+      APP_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:18080}
+      NODE_ENV: ${NODE_ENV:-development}
+      SESSION_SECRET: ${SESSION_SECRET:?Run setup-dev first}
+      REDIS_URL: redis://redis:6379
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
+      LIVEKIT_INTERNAL_URL: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Run setup-dev first}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Run setup-dev first}
+    depends_on:
+      redis: { condition: service_healthy }
+      livekit: { condition: service_started }
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    cpus: 1.5
+    pids_limit: 128
+    restart: unless-stopped
+  redis:
+    image: redis:7.4.2-alpine
+    user: "999:999"
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    restart: unless-stopped
+  livekit:
+    image: livekit/livekit-server:v1.13.10
+    user: "1000:1000"
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes: ["./deploy/livekit.docker.local.yaml:/etc/livekit.yaml:ro"]
+    ports: ["127.0.0.1:7880:7880", "7881:7881", "7882:7882/udp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    cpus: 2
+    restart: unless-stopped
