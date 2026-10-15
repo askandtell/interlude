@@ -6,7 +6,7 @@ services:
     plan: free
     region: singapore
     numInstances: 1
-    buildCommand: npm ci --registry=https://registry.npmjs.org && npm run build && npm prune --omit=dev
+    buildCommand: npm ci --include=dev --registry=https://registry.npmjs.org && npm run build && npm prune --omit=dev
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeployTrigger: 'off'
