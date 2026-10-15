@@ -14,12 +14,14 @@ SRT/VTT subtitles support shared size, offset and wrapping; host preview uses th
 
 ## Run locally
 
-Node.js 24+, npm and LiveKit Server (native or Docker) are required.
+Start with the [user and deployment guide](docs/GETTING_STARTED.en.md). Joining a friend's room does not require a hosting account. Self-hosters use their own credentials and quotas; this repository includes neither the maintainer's secrets nor shared cloud credits. [Try the hosted instance](https://interlude-eoqk.onrender.com), subject to free-tier sleep and quota limits.
+
+Node.js 24+ and npm are required. Local small-room P2P can run without cloud accounts; LiveKit Server (native or Docker) enables relay fallback.
 
 ```sh
 npm ci
 node scripts/setup-dev.mjs
-npm run infra
+# Optional: npm run infra enables local relay fallback
 # Terminal 1
 npm run dev
 # Terminal 2
@@ -36,7 +38,7 @@ Every invite-copy action rotates the invite; previous links expire. No account i
 
 `npm run check`; `npm run test:e2e`; `npm run test:media` generates FFmpeg fixtures. Set MEDIA_E2E=1 for actual SFU tests. See [verification status](docs/TEST_REPORT.md), [security model](docs/SECURITY.md) and [deployment guide](docs/DEPLOYMENT.md).
 
-This is an early local implementation. Public internet/TURN-only operation, real iOS/Safari/Android devices, two-hour soak and measured inter-viewer synchronization targets are separate release gates. Jellyfin and native apps are future work.
+The deployed HTTPS instance has passed two isolated-browser tests of actual decoded video/audio through both direct WebRTC and LiveKit Cloud. Separate-ISP operation, TURN-only networks, real phones and two-hour soak remain unverified. Jellyfin and native apps are future work.
 
 ## Attribution
 

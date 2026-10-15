@@ -4,7 +4,11 @@
 
 浏览器优先的好友私人放映室。房主选择本地影片，朋友通过私密邀请申请入座；文字、语音与电影分轨传输，影片不作为文件上传保存。
 
-> v0.1 本地可运行版本，尚未通过公网、TURN-only、真实手机及两小时连续播放验收。公开运营前请阅读 [安全说明](docs/SECURITY.md) 和 [验证报告](docs/TEST_REPORT.md)。
+**第一次来？阅读[用户入门与自行部署](docs/GETTING_STARTED.md)。** 加入朋友的房间无需云服务账号；自行部署需使用自己的服务配置。公开源码不包含维护者的免费额度或密钥。
+
+**[打开在线体验](https://interlude-eoqk.onrender.com)** · [使用与自行部署](docs/GETTING_STARTED.md) · [English](README.en.md)
+
+> v0.1 已通过公开 HTTPS 实例的双浏览器直连、云端转发音画测试。免费体验站可能休眠或耗尽额度；跨运营商、TURN-only、真实手机及两小时连续播放仍待验收。请阅读 [安全说明](docs/SECURITY.md) 和 [验证报告](docs/TEST_REPORT.md)。
 
 ![Interlude actual browser interface](docs/design/implemented-home.png)
 
@@ -26,12 +30,12 @@
 
 ## 快速开始
 
-需要 Node.js 24+、npm，以及 Docker 或原生 LiveKit Server。
+需要 Node.js 24+、npm。本机 P2P 试用不需要云服务账号；测试转发时另外启动 Docker 或原生 LiveKit Server。
 
 ```sh
 npm ci
 node scripts/setup-dev.mjs
-npm run infra
+# 可选：npm run infra 启动本机转发服务
 ```
 
 再打开两个终端：
@@ -73,7 +77,7 @@ npm run test:media
 
 [架构](docs/ARCHITECTURE.md) · [部署](docs/DEPLOYMENT.md) · [安全](docs/SECURITY.md) · [English](README.en.md)
 
-Jellyfin、原生电脑/手机客户端、个人独立字幕和端到端加密属于后续阶段，目前未实现。已创建私有部署仓库，公网部署尚未验收。
+Jellyfin、原生电脑/手机客户端、个人独立字幕和端到端加密属于后续阶段，目前未实现。源码已公开；公网实例的验证范围见验证报告。
 
 ## 视频网站一起看（实验性）
 

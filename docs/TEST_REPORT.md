@@ -117,3 +117,20 @@ npm run test:e2e -- --grep 'continuous real-media soak'
 - 类型检查、生产构建、格式检查通过；官方 npm registry 依赖审计为 0 漏洞。构建仍有现有编码器与媒体 SDK 大包提示。
 - 环境为同一 Windows 主机的独立 Chromium 上下文、原生 LiveKit 与本地 Redis；不是跨运营商测试。本次没有新增公网链接，没有验证真实手机、国内 STUN 可达性、UDP 全阻断、TURN-only 或两小时运行。P2P 另用实际画面中的 30fps 条码时间码，同时读取房主和两个观看者，20 次样本的最大画面差 P95 为 66.7ms，达到本地 500ms 目标；原始数据 artifacts/direct-render-skew.json。此结果不能外推到公网直连。
 - 没有购买、绑卡、升级套餐或实现账单级硬限额。成功直连不连接 LiveKit；转发仍受所用服务的实际免费额度约束。
+
+## 公开 HTTPS 部署验收
+
+- 实际部署地址 `https://interlude-eoqk.onrender.com`；Render 新加坡 Free Web Service + Free Key Value，使用独立 LiveKit Cloud 项目转发，签名 webhook 指向部署实例。生产构建修复为显式 `npm ci --include=dev`，编译后 prune；不再因 NODE_ENV=production 漏装构建工具而失败。
+- `tests/e2e/public.spec.ts` 两项真实公网测试通过：P2P 与 LiveKit Cloud 分别经过两个隔离 Chromium 身份的创建、审批、持续解码视频、电影音频 RMS 检测、独立语音轨、暂停、移除成员。生产 Cookie 确认为 Secure/HttpOnly/SameSite=Strict；健康检查 storage/media 正常。测试房间在完成后结束。
+- 证据保存在 `artifacts/public-direct.json`、`artifacts/public-relay.json` 与对应实际页面截图。没有把“页面已打开”当成音视频验收；也没有使用本机 LiveKit 替代云端转发。
+- 两个浏览器均运行在同一 Windows 网络上，P2P 可能利用本机候选地址。此结果证明公网控制链路和 Cloud SFU 能完成所测流程，不证明不同运营商直连、国内全网稳定可用、真实手机或 TURN-only 网络通过；两小时长测仍未执行。
+- 公开源码与部署密钥分离。检查新增 Git 历史的 127 个 blob，未发现所用凭证特征或本机秘密值；这不是第三方安全审计。仓库不包含部署凭证。其他用户的加入、放映、本机运行、免费自行部署和常见故障步骤见中英文 Getting Started。
+
+复现公网测试时先生成测试片，再明确设置自己的部署地址：
+
+```powershell
+$env:PUBLIC_E2E_URL='https://你的服务.onrender.com'
+npm run test:public
+```
+
+这会创建临时房间并实际使用少量云端额度；默认本机测试不运行公网用例。不要将测试指向未经允许的他人部署。
