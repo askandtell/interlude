@@ -214,6 +214,9 @@ for (const sample of [
   });
 }
 test('damaged files produce a recoverable error without publishing', async ({ page }) => {
+  await page.route('**/api/health', (route) =>
+    route.fulfill({ json: { storage: true, media: false, status: 'control-only' } }),
+  );
   await createHost(page);
   await page
     .locator('input[type=file]')
@@ -223,8 +226,8 @@ test('damaged files produce a recoverable error without publishing', async ({ pa
       mimeType: 'video/mp4',
       buffer: Buffer.from('not-a-video'),
     });
-  await expect(page.getByRole('alert')).toContainText('请确认文件未损坏');
-  await expect(page.getByRole('alert')).not.toContainText('Input has');
+  await expect(page.locator('.preflight-error[role=alert]')).toContainText('请确认文件未损坏');
+  await expect(page.locator('.preflight-error[role=alert]')).not.toContainText('Input has');
   await expect(page.getByRole('button', { name: '选择本地影片' })).toBeEnabled();
 });
 test('eight real participants receive the shared film', async ({ page, browser }) => {

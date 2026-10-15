@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 mkdirSync('.cache/fixtures', { recursive: true });
 const cases = [
+  ['microphone.wav', ['-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','10','-c:a','pcm_s16le','-ac','1']],
   ['sample.mp4', ['-f','lavfi','-i','testsrc2=size=640x360:rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','20','-c:v','libx264','-pix_fmt','yuv420p','-preset','ultrafast','-c:a','aac','-movflags','+faststart']],
   ['silent.mp4', ['-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','4','-c:v','libx264','-pix_fmt','yuv420p','-an']],
   ['sample.webm', ['-f','lavfi','-i','testsrc2=size=640x360:rate=15','-f','lavfi','-i','sine=frequency=880:sample_rate=48000','-t','5','-c:v','libvpx','-deadline','realtime','-c:a','libopus']],

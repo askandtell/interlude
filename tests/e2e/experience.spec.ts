@@ -270,6 +270,9 @@ test('device test requires a click, never joins SFU, and closes all test tracks'
 });
 
 test('microphone denial leaves the test off with an actionable message', async ({ page }) => {
+  await page.route('**/api/health', (route) =>
+    route.fulfill({ json: { storage: true, media: false, status: 'control-only' } }),
+  );
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = async () => {
       throw new DOMException('denied', 'NotAllowedError');
@@ -278,7 +281,7 @@ test('microphone denial leaves the test off with an actionable message', async (
   await createHost(page);
   await page.getByRole('button', { name: '房间设置' }).click();
   await page.getByRole('button', { name: '开始检测', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('麦克风权限未允许');
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('麦克风权限未允许');
   await expect(page.getByRole('button', { name: '开始检测', exact: true })).toBeEnabled();
 });
 
