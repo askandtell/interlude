@@ -1,53 +1,58 @@
 # Interlude / 幕间
 
-A private, browser-first cinema for 2–8 friends. Choose a local film, invite your friends, approve their seats, and watch together with text and opt-in voice chat. Local files are never uploaded for permanent storage. Up to three online members use direct WebRTC first; failed direct connections or four or more members use LiveKit. Migration preserves the file, briefly pauses playback and closes the microphone. See [hybrid media behavior and privacy](docs/HYBRID_MEDIA.md). Cloud fallback still depends on available quota; free, unlimited service is not promised.
+Watch local videos with friends. The host chooses a file, approves guests and controls playback. Everyone can chat while watching.
 
-![Interlude actual browser interface](docs/design/implemented-home.png)
+[Try it](https://interlude-eoqk.onrender.com) · [Getting started](docs/GETTING_STARTED.en.md) · [Self-hosting](docs/FREE_HOSTING.md) · [中文](README.md)
 
-![Interlude actual screening room](docs/design/implemented-room.png)
+![Screening room](docs/design/implemented-room.png)
 
-## Interface and basic experience
+## Features
 
-The functional light lobby contains create, invitation and local recent-room actions; the dark screening room has one coherent player and a collapsible chat panel. Decorative artwork and Three.js/GSAP have been removed. Failed or cancelled replacement files preserve the previous movie. After a refresh, the host must reselect a matching local file and explicitly confirm resuming.
+- Private rooms for up to eight people, with invitations and host approval.
+- Shared play, pause and seek controls; guests can request a pause.
+- Text and opt-in voice chat, with separate movie and voice volumes.
+- SRT/VTT subtitles with size and timing adjustments.
+- Direct WebRTC for small rooms, with LiveKit fallback for failed connections or larger groups.
+- Browser interface, responsive viewer layout and self-hosting support.
 
-SRT/VTT subtitles support shared size, offset and wrapping; host preview uses the actual composited canvas. Microphone tests are opt-in, local-only and release their tracks when closed. Device selection follows browser capabilities.
+The original file is not uploaded for storage. The host must keep the tab open and reselect the file after refreshing. Use desktop Chrome or Edge to host local video.
+
+## Watch with friends
+
+Create a room, select a video and copy an invitation. When someone requests entry, use the request notice to open the approval list. Start screening after approval; guests click Start watching. Microphones stay off until enabled. Friends do not need hosting accounts.
+
+The demo uses free hosting and may take around a minute to wake up or pause when quota runs out. For regular use, [deploy your own instance](docs/FREE_HOSTING.md) with your own service credentials and quota.
 
 ## Run locally
 
-Start with the [user and deployment guide](docs/GETTING_STARTED.en.md). Joining a friend's room does not require a hosting account. Self-hosters use their own credentials and quotas; this repository includes neither the maintainer's secrets nor shared cloud credits. [Try the hosted instance](https://interlude-eoqk.onrender.com), subject to free-tier sleep and quota limits.
-
-Node.js 24+ and npm are required. Local small-room P2P can run without cloud accounts; LiveKit Server (native or Docker) enables relay fallback.
+Install Git and Node.js 24+, then:
 
 ```sh
+git clone https://github.com/askandtell/interlude.git
+cd interlude
 npm ci
 node scripts/setup-dev.mjs
-# Optional: npm run infra enables local relay fallback
-# Terminal 1
-npm run dev
-# Terminal 2
-npm run ui
 ```
 
-Visit http://127.0.0.1:15173. For a native LiveKit install use `livekit-server --config deploy/livekit.local.yaml`. Redis is optional in development; configure REDIS_URL for TTL-backed room metadata. The Compose Redis is private to the stack. Full-container mode: `docker compose up --build`, then http://localhost:18080.
+Run `npm run dev` and `npm run ui` in separate terminals. Open **http://127.0.0.1:15173** exactly. Local small-room P2P works without a cloud account. LiveKit enables relay fallback; see [deployment](docs/DEPLOYMENT.md). Without Redis, development rooms are lost on restart.
 
-The host needs desktop Chrome/Edge and must keep the tab/file available. Guests receive a live stream, not a locally seekable file. Mic access is requested only after an explicit click. No camera, billing, remote browser, generic media proxy or public room listing is enabled.
+## Deploy and develop
 
-Every invite-copy action rotates the invite; previous links expire. No account is needed, but membership requires owner approval. Transport encryption is provided; E2EE is not claimed.
+The repository includes Docker Compose and a Free Render Blueprint. A provider subdomain avoids buying a domain or VPS. Keep LiveKit secrets in server environment variables. Forking the source does not include the maintainer's cloud resources.
 
-## Verification and limits
+- [User and setup guide](docs/GETTING_STARTED.en.md)
+- [Deployment](docs/DEPLOYMENT.md) and [free hosting limits](docs/FREE_HOSTING.md)
+- [Direct and relay behavior](docs/HYBRID_MEDIA.md)
+- [Architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md) and [test results](docs/TEST_REPORT.md)
 
-`npm run check`; `npm run test:e2e`; `npm run test:media` generates FFmpeg fixtures. Set MEDIA_E2E=1 for actual SFU tests. See [verification status](docs/TEST_REPORT.md), [security model](docs/SECURITY.md) and [deployment guide](docs/DEPLOYMENT.md).
+Run `npm run check` and `npm run test:e2e`. Generate media fixtures with `npm run test:media` after installing FFmpeg. Set `MEDIA_E2E=1` with a running local LiveKit to include relay tests. Public tests use `PUBLIC_E2E_URL` and `npm run test:public`; they create temporary rooms and consume some media quota.
 
-The deployed HTTPS instance has passed two isolated-browser tests of actual decoded video/audio through both direct WebRTC and LiveKit Cloud. Separate-ISP operation, TURN-only networks, real phones and two-hour soak remain unverified. Jellyfin and native apps are future work.
+## Limitations
 
-## Attribution
+This is an early release. Desktop browsers and the public HTTPS instance have been tested with real direct and cloud-relayed video/audio. Separate-ISP networks, physical phones, TURN-only conditions and a two-hour soak still need testing. Viewers cannot seek independently within the shared live stream.
 
-Derived from Howard Chung's [WatchParty](https://github.com/howardchung/watchparty), MIT licensed. Full upstream history and license retained; baseline commit `2d366c1006b7b86228bcd7bb6debc111d857f51e`. The local transcoder is reused; private-room authority, SFU integration and UI are purpose-built. See [third-party notices](THIRD_PARTY_NOTICES.md). No GitHub repository or public hosting is created automatically.
+The [official-site sync extension](docs/WEBSITE_WATCH.md) is experimental and requires each viewer's own access rights. Jellyfin, native clients and personal subtitle tracks are not implemented.
 
-## Official-site watch sync (experimental)
+## License
 
-Rooms accept canonical Bilibili, Youku, iQiyi and Tencent Video watch-page links. Each viewer plays on the official site with their own access rights. Interlude shares only the link and authoritative timeline, with manual alignment or the unpacked Chrome/Edge extension in `extensions/watch-sync`. It does not download, proxy, decrypt or capture site media, share accounts, or bypass ads/paywalls. Real account, ad and subscription playback on all four sites and the full extension installation flow remain unverified. See [setup and limitations](docs/WEBSITE_WATCH.md). No additional dependencies were added.
-
-## Free hosted hobby deployment
-
-`render.yaml` defines a Free Node web service and private Free Key Value instance, with LiveKit Cloud Build for media. The platform-provided HTTPS hostname is used as the exact Origin; no custom domain or rented VPS is required. Credentials stay in server-side secret variables. Free services can sleep, restart, or exhaust quotas; mainland reachability and real media require testing. See [deployment details](docs/FREE_HOSTING.md).
+Derived from Howard Chung's [WatchParty](https://github.com/howardchung/watchparty), under MIT. Upstream history, license and attribution are retained, including the browser transcoding module. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).

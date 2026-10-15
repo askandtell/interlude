@@ -1781,3 +1781,52 @@ p {
   color: #b5b7b8;
   font-size: 14px;
 }
+.admission-notice {
+  position: fixed;
+  z-index: 450;
+  top: 84px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(470px, calc(100vw - 32px));
+  padding: 16px;
+  color: #ecedee;
+  background: #252728;
+  border: 1px solid #d5b77b80;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px #0004;
+}
+.admission-notice > svg {
+  flex-shrink: 0;
+  color: #d5b77b;
+}
+.admission-notice > div {
+  min-width: 0;
+  flex: 1;
+}
+.admission-notice strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.admission-notice span {
+  display: block;
+  color: #b5b7b8;
+  margin-top: 4px;
+  font-size: 14px;
+}
+.admission-notice button {
+  flex-shrink: 0;
+}
+:fullscreen .admission-notice {
+  top: 16px;
+  right: 16px;
+}
+@media (max-width: 760px) {
+  .admission-notice {
+    top: 76px;
+    right: 16px;
+    gap: 10px;
+  }
+}
