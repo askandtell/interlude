@@ -2,7 +2,7 @@
 
 ## Local browser development
 
-Node.js 24+, npm, and either LiveKit Server or Docker are required. Redis is recommended; without REDIS_URL the **development-only** in-memory store loses rooms at restart. There is no fake media transport: without LiveKit, the UI explicitly reports that movie and voice publishing are unavailable.
+Node.js 24+ and npm are required. Small-room direct WebRTC can run without LiveKit; LiveKit Server or Docker enables relay fallback. Redis is recommended; without REDIS_URL the **development-only** in-memory store loses rooms at restart. Without LiveKit, failed direct connections and rooms of four or more cannot fall back to relay. See the [first-use guide](GETTING_STARTED.md).
 
 ```sh
 npm ci
@@ -25,11 +25,13 @@ After setup: `docker compose up --build`. Open http://localhost:18080. All Compo
 
 ## Public service
 
+For a provider subdomain without a purchased domain or VPS, use the [free Blueprint route](FREE_HOSTING.md). Each operator must supply their own cloud accounts and secrets. `NODE_ENV=production` omits development packages by default, so build with `npm ci --include=dev`, build assets, then `npm prune --omit=dev`.
+
 Use a Linux host, real domain names, HTTPS/WSS, random secrets, private Redis, reverse proxy and LiveKit's documented public IP/TURN configuration. See `deploy/Caddyfile.example` and the [official guide](https://docs.livekit.io/transport/self-hosting/deployment/). Set NODE_ENV=production, APP_ORIGIN to the exact app HTTPS origin, LIVEKIT_URL to the public WSS origin, and LIVEKIT_INTERNAL_URL to a private admin endpoint.
 
 Do not expose the development YAML, development HTTP ports or Redis. Customize the Compose port mappings and bind addresses for your reverse proxy; TURN/TLS may need a separate address/port. Keep the app to one replica. Do not put this project behind an edge runtime that lacks long-lived WebSockets, UDP or the required media service connectivity.
 
-Ingress is one set of encoded film tracks (simulcast can send several quality layers), not one full upload per friend. SFU egress still grows with viewer count. Budget outbound traffic, CPU, memory and connection quotas. Recording/egress is not configured.
+In relay mode ingress is one set of encoded film tracks (simulcast can send several quality layers). SFU egress grows with viewer count. Direct mode uploads a copy to each viewer. Budget outbound traffic, CPU, memory and connection quotas. Recording/egress is not configured.
 
 ## Verification
 

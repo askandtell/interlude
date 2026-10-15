@@ -612,9 +612,29 @@ export default function App() {
           </section>
           <footer className="home-footer">
             <span>本地选片，朋友直接观看。</span>
-            <a href="https://github.com/howardchung/watchparty" target="_blank" rel="noreferrer">
-              基于 WatchParty · 开源声明
-            </a>
+            <nav aria-label="帮助与开源">
+              <a
+                href="https://github.com/askandtell/interlude/blob/main/docs/GETTING_STARTED.md"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                使用指南
+              </a>
+              <a
+                href="https://github.com/askandtell/interlude"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                GitHub 源码
+              </a>
+              <a
+                href="https://github.com/howardchung/watchparty"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                基于 WatchParty
+              </a>
+            </nav>
           </footer>
         </main>
       ) : (

@@ -403,6 +403,11 @@ p {
 .home-footer a:hover {
   text-decoration: underline;
 }
+.home-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
 .room-app .topbar {
   max-width: none;
   height: 64px;

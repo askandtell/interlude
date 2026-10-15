@@ -33,7 +33,7 @@ export async function admit(
       viewport: { width: 1280, height: 900 },
     }),
     guest = await context.newPage();
-  await guest.goto(`http://127.0.0.1:15173/room/${data.room.id}#invite=${data.invite}`);
+  await guest.goto(new URL(`/room/${data.room.id}#invite=${data.invite}`, host.url()).href);
   await guest.getByLabel('你的昵称').fill('阿远');
   await guest.getByRole('button', { name: '敲门，申请加入' }).click();
   await expect(guest.getByRole('heading', { name: '等待房主批准' })).toBeVisible();

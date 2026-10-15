@@ -13,7 +13,7 @@
 ## 部署流程
 
 1. 用户完成 LiveKit、Render 账号登录、注册条款与邮箱验证。只使用免费个人套餐，不绑定支付方式。
-2. 将完整 Git 历史与应用改动推送到独立私有仓库。Render GitHub 集成仅授权此仓库，不能用不相关仓库或将 GitHub 个人访问令牌交给托管商。
+2. Fork 或将完整 Git 历史与应用改动推送到自己的仓库，公开或私有均可。Render GitHub 集成仅授权部署所需仓库，不能用不相关仓库或将 GitHub 个人访问令牌交给托管商。
 3. Render 使用该仓库的 `render.yaml` 创建 Blueprint。服务清单必须全部为 Free。填入 LiveKit 的三项服务端变量；SESSION_SECRET 自动生成。
 4. 构建完成后检查 HTTPS 主页、Secure/HttpOnly/SameSite 会话、严格 Origin、Socket.IO、健康状态。Redis 不可用时拒绝生产启动；媒体管理连接不可用时允许直连，并明确显示转发暂不可用。
 5. 给 LiveKit 配置签名 webhook，地址为 `https://实际平台网址/api/livekit/webhook`，签名 key 选择本项目使用的 API key。周期检查仍作为补充保护。
@@ -30,6 +30,10 @@ LiveKit Build 目前提供每月 5,000 WebRTC 参与者分钟、50GB 下行额�
 平台子域名与境外免费节点在中国大陆能否稳定访问，需要分别实测网页、信令和媒体。不能仅凭部署成功宣称“国内稳定可用”。如果链路不可靠，先记录结果，再选择其他免费部署方式；不偷偷变更到收费方案。
 
 ## 当前实施记录
+
+公网实例已部署到 **https://interlude-eoqk.onrender.com**，仓库 **https://github.com/askandtell/interlude** 已公开。Render Web Service 与 Key Value 均为 Free，LiveKit 使用项目自己的服务端凭证；未购买域名、VPS、磁盘或升级实例。已配置签名 webhook，并撤销未用于部署的旧密钥。
+
+两个隔离浏览器身份通过公网地址分别验证原生直连与真实 LiveKit Cloud 转发，实际解码视频、非静音电影音轨、主动麦克风、暂停和移除成员均通过。验证不覆盖真实手机、不同运营商或两小时连续播放；以 [测试报告](TEST_REPORT.md) 为准。其他部署者应按[入门指南](GETTING_STARTED.md)使用自己的账号和额度，不复用维护者实例的服务端配置。
 
 2026-10-15：已准备自动 Origin、云端媒体配置、免费 Blueprint 与测试；已创建独立私有部署仓库 `askandtell/interlude`。LiveKit 项目已创建并关闭观测录制。实际构建发布、托管集成、服务端密钥、签名 webhook 及公网音画状态以本次会话的最终报告为准，本文不是发布成功证明。
 
