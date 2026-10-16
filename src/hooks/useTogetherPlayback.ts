@@ -42,6 +42,9 @@ export function useTogetherPlayback(
     if (film.info && room?.selfId === room?.hostId) status('ready');
   }, [room?.id, room?.mediaEpoch, film.info, status]);
   useEffect(() => {
+    if (connected && room?.selfStatus === 'approved' && !film.info) status('not-ready');
+  }, [connected, room?.selfStatus, film.info, status]);
+  useEffect(() => {
     if (!connected || room?.closed || room?.selfStatus !== 'approved') {
       setActive(false);
       film.source.current?.pause();

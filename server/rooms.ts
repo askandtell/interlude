@@ -207,6 +207,7 @@ export class Rooms {
     return this.transaction(id, (r) => {
       const m = this.member(r, session);
       m.online = online;
+      if (!online) m.viewing = 'not-ready';
       m.lastSeen = this.now();
       if (m.id === r.hostId) {
         if (online) r.hostOfflineAt = undefined;
