@@ -1,1 +1,23 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="theme-color" content="#f7f6f2"/><meta name="description" content="一起看：和朋友各自播放同一部影片，同步进度，边看边聊。"/><title>一起看 · 好友私人放映室</title><link rel="icon" type="image/svg+xml" href="/mark.svg"/></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f6f2" />
+    <meta name="description" content="一起看：和朋友各自播放同一部影片，同步进度，边看边聊。" />
+    <title>一起看 · 好友私人放映室</title>
+    <link rel="icon" type="image/svg+xml" href="/mark.svg" />
+  </head>
+  <body>
+    <div id="root">
+      <main style="max-width:480px;margin:20vh auto;padding:24px;font:16px/1.7 system-ui;color:#181a1b">
+        <h1>一起看</h1>
+        <p id="startup-message" role="status">正在打开放映室…</p>
+        <button id="startup-retry" type="button" hidden style="min-height:44px;padding:8px 20px">重新加载</button>
+        <noscript>请开启浏览器的 JavaScript 后重新加载。</noscript>
+      </main>
+    </div>
+    <script src="/startup.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

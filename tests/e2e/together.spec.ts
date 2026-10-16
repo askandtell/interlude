@@ -1,7 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createHost, admit } from './helpers';
 import { mkdirSync, writeFileSync } from 'node:fs';
+const artifactDir = process.env.PUBLIC_E2E_URL ? 'artifacts/public' : 'artifacts';
 async function select(page: Page, file = '.cache/fixtures/barcode.mp4') {
+  await expect(
+    page.getByRole('button', { name: /^(选择本地影片|选择自己的影片|更换影片)$/ }).first(),
+  ).toBeEnabled();
   await page.locator('input[type=file]').first().setInputFiles(file);
   await expect(page.locator('.preflight-error')).toHaveCount(0);
   await expect(page.locator('.screen canvas')).toBeVisible();
@@ -73,9 +77,9 @@ test('independent files play in sync without media connections, with pause, seek
     expect(await page.evaluate(() => (window as any).__mediaCalls)).toBe(0);
     expect(requests).toEqual([]);
     expect(await guest.getByRole('button', { name: /麦克风/ }).count()).toBe(0);
-    mkdirSync('artifacts', { recursive: true });
+    mkdirSync(artifactDir, { recursive: true });
     writeFileSync(
-      'artifacts/together-sync.json',
+      `${artifactDir}/together-sync.json`,
       JSON.stringify(
         {
           samplesMs: samples,
@@ -87,7 +91,7 @@ test('independent files play in sync without media connections, with pause, seek
         2,
       ),
     );
-    await page.screenshot({ path: 'artifacts/together-room.png', fullPage: true });
+    await page.screenshot({ path: `${artifactDir}/together-room.png`, fullPage: true });
     await page.getByRole('button', { name: /座位/ }).click();
     await page.getByRole('button', { name: '移除 阿远', exact: true }).click();
     await expect(guest.getByRole('alert')).toContainText('已离开');
@@ -130,6 +134,7 @@ test('failed replacement keeps old source; mismatched files cannot join; refresh
   await select(page);
   const { guest, context } = await admit(browser, page, data);
   try {
+    await expect(guest.getByRole('button', { name: '选择自己的影片', exact: true })).toBeEnabled();
     await guest.locator('input[type=file]').first().setInputFiles('.cache/fixtures/silent.mp4');
     await expect(guest.getByRole('alert')).toContainText('时长');
     await expect(guest.locator('video.movie-element')).toHaveCount(0);
@@ -170,7 +175,7 @@ test('member subtitles stay local and mobile layout stays usable', async ({ page
     await expect
       .poll(() => guest.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
-    await guest.screenshot({ path: 'artifacts/together-mobile.png', fullPage: true });
+    await guest.screenshot({ path: `${artifactDir}/together-mobile.png`, fullPage: true });
   } finally {
     await context.close();
   }

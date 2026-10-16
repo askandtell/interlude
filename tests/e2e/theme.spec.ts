@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+test('failed entry loading shows a retry action and recovers after reload', async ({ page }) => {
+  await page.route('**/src/main.tsx*', (route) => route.abort('failed'));
+  await page.goto('/');
+  await expect(page.getByRole('status')).toContainText('页面加载未完成');
+  await expect(page.getByRole('button', { name: '重新加载', exact: true })).toBeVisible();
+  await page.unroute('**/src/main.tsx*');
+  await page.getByRole('button', { name: '重新加载', exact: true }).click();
+  await expect(page.getByRole('button', { name: '创建放映室', exact: true })).toBeEnabled();
+});
+
 test('create dialog keeps transitions and theme stable across input and another room tab', async ({
   page,
   context,
