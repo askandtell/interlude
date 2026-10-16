@@ -404,12 +404,20 @@ export function Player(p: Props) {
           </strong>
           <p>{film.preflight.error}</p>
           <div>
-            <button className="secondary-button" onClick={() => p.run(film.retry())}>
-              <IconRefresh size={16} /> 重试
-            </button>
-            <button className="secondary-button" onClick={() => p.run(film.retry(true))}>
-              尝试兼容转换
-            </button>
+            {film.preflight.reload ? (
+              <button className="secondary-button" onClick={() => location.reload()}>
+                <IconRefresh size={16} /> 刷新页面
+              </button>
+            ) : (
+              <>
+                <button className="secondary-button" onClick={() => p.run(film.retry())}>
+                  <IconRefresh size={16} /> 重试
+                </button>
+                <button className="secondary-button" onClick={() => p.run(film.retry(true))}>
+                  尝试兼容转换
+                </button>
+              </>
+            )}
             <button className="text-button" onClick={p.onSelect}>
               重新选片
             </button>

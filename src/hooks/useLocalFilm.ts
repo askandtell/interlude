@@ -8,6 +8,7 @@ export type Preflight = {
   phase: 'idle' | 'checking' | 'committing' | 'ready' | 'compatibility' | 'error';
   name?: string;
   error?: string;
+  reload?: boolean;
 };
 export function useLocalFilm(options: {
   room?: RoomView;
@@ -54,10 +55,18 @@ export function useLocalFilm(options: {
       (r.closed ||
         r.selfStatus !== 'approved' ||
         r.playback.kind === 'website' ||
-        (source.current && epoch.current !== r.mediaEpoch && !committing.current))
+        ((source.current || candidate.current) &&
+          epoch.current !== r.mediaEpoch &&
+          !committing.current))
     )
       clear();
-  }, [options.room?.mediaEpoch, options.room?.closed, options.room?.selfStatus, clear]);
+  }, [
+    options.room?.mediaEpoch,
+    options.room?.hostId,
+    options.room?.closed,
+    options.room?.selfStatus,
+    clear,
+  ]);
   useEffect(() => {
     if (source.current) source.current.element.volume = options.volume;
   }, [options.volume, info]);
@@ -76,84 +85,98 @@ export function useLocalFilm(options: {
     candidate.current = undefined;
     setPreflight({ phase: source.current ? 'ready' : 'idle', name: file.current?.name });
   }, []);
-  const select = useCallback(async (next?: File, convert = false) => {
-    if (!next) return;
-    const opt = latest.current,
-      r = opt.room;
-    if (!r || !opt.connected) throw new Error('请等待房间连接恢复');
-    const host = r.selfId === r.hostId;
-    if (!host && r.playback.kind !== 'local') throw new Error('请等待房主选择本地影片');
-    const id = ++generation.current;
-    retryFile.current = next;
-    candidate.current?.dispose();
-    source.current?.pause();
-    const prepared = new LocalSource((e) => {
-      if (source.current === prepared) {
-        prepared.pause();
-        latest.current.onError(e);
-      }
-    });
-    candidate.current = prepared;
-    setPreflight({ phase: 'checking', name: next.name });
-    try {
-      if (host && source.current) await opt.control({ kind: 'pause' });
-      const metadata = await prepared.prepare(next, convert);
-      const valid = (acceptedEpoch = r.mediaEpoch) =>
-        id === generation.current &&
-        latest.current.room?.id === r.id &&
-        latest.current.room?.selfStatus === 'approved' &&
-        latest.current.room?.hostId === r.hostId &&
-        (latest.current.room?.mediaEpoch === r.mediaEpoch ||
-          latest.current.room?.mediaEpoch === acceptedEpoch);
-      if (!valid()) {
-        prepared.dispose();
-        return;
-      }
-      if (!host && Math.abs(metadata.duration - r.playback.duration) > 1)
-        throw new Error(
-          `影片时长相差 ${Math.abs(metadata.duration - r.playback.duration).toFixed(1)} 秒，请选择同一剪辑版本`,
-        );
-      committing.current = id;
-      setPreflight({ phase: 'committing', name: next.name });
-      const view = host
-        ? await opt.control({ kind: 'source', title: '本地影片', duration: metadata.duration })
-        : latest.current.room!;
-      if (!valid(view.mediaEpoch)) {
-        prepared.dispose();
-        return;
-      }
-      source.current?.dispose();
-      epoch.current = view.mediaEpoch;
-      prepared.mount(opt.stage.current!, 1080);
-      source.current = prepared;
-      candidate.current = undefined;
-      file.current = next;
-      prepared.element.volume = latest.current.volume;
-      prepared.element.addEventListener('ended', () => {
-        if (
-          source.current === prepared &&
-          latest.current.room?.selfId === latest.current.room?.hostId
-        )
-          void latest.current.control({ kind: 'ended' }).catch(latest.current.onError);
+  const select = useCallback(
+    async (next?: File, convert = false) => {
+      if (!next) return;
+      const opt = latest.current,
+        r = opt.room;
+      if (!r || !opt.connected) throw new Error('请等待房间连接恢复');
+      const host = r.selfId === r.hostId;
+      if (!host && r.playback.kind !== 'local') throw new Error('请等待房主选择本地影片');
+      const id = ++generation.current;
+      if (!source.current) epoch.current = r.mediaEpoch;
+      retryFile.current = next;
+      candidate.current?.dispose();
+      source.current?.pause();
+      const prepared = new LocalSource((e) => {
+        if (source.current === prepared) {
+          prepared.pause();
+          latest.current.onError(e);
+        }
       });
-      setInfo(metadata);
-      setSubtitleName('');
-      setSettings(defaultSubtitleSettings);
-      setResume(host ? matchingResume(readResume(r.id), next, metadata.duration) : undefined);
-      setPreflight({ phase: 'ready', name: next.name });
-    } catch (e) {
-      prepared.dispose();
-      if (id !== generation.current) return;
-      candidate.current = undefined;
-      setPreflight({
-        phase: !convert && e instanceof SourceError ? 'compatibility' : 'error',
-        name: next.name,
-        error: e instanceof Error ? e.message : '影片准备失败',
-      });
-    } finally {
-      if (committing.current === id) committing.current = 0;
-    }
-  }, []);
+      candidate.current = prepared;
+      setPreflight({ phase: 'checking', name: next.name });
+      try {
+        if (host && source.current) await opt.control({ kind: 'pause' });
+        const metadata = await prepared.prepare(next, convert);
+        const valid = (acceptedEpoch = r.mediaEpoch) =>
+          id === generation.current &&
+          latest.current.room?.id === r.id &&
+          latest.current.room?.selfStatus === 'approved' &&
+          latest.current.room?.hostId === r.hostId &&
+          (latest.current.room?.mediaEpoch === r.mediaEpoch ||
+            latest.current.room?.mediaEpoch === acceptedEpoch);
+        if (!valid()) {
+          prepared.dispose();
+          if (id === generation.current) clear();
+          return;
+        }
+        if (!host && Math.abs(metadata.duration - r.playback.duration) > 1)
+          throw new Error(
+            `影片时长相差 ${Math.abs(metadata.duration - r.playback.duration).toFixed(1)} 秒，请选择同一剪辑版本`,
+          );
+        committing.current = id;
+        setPreflight({ phase: 'committing', name: next.name });
+        const view = host
+          ? await opt.control({ kind: 'source', title: '本地影片', duration: metadata.duration })
+          : latest.current.room!;
+        if (!valid(view.mediaEpoch)) {
+          prepared.dispose();
+          if (id === generation.current) clear();
+          return;
+        }
+        source.current?.dispose();
+        epoch.current = view.mediaEpoch;
+        prepared.mount(opt.stage.current!, 1080);
+        source.current = prepared;
+        candidate.current = undefined;
+        file.current = next;
+        prepared.element.volume = latest.current.volume;
+        prepared.element.addEventListener('ended', () => {
+          if (
+            source.current === prepared &&
+            latest.current.room?.selfId === latest.current.room?.hostId
+          )
+            void latest.current.control({ kind: 'ended' }).catch(latest.current.onError);
+        });
+        setInfo(metadata);
+        setSubtitleName('');
+        setSettings(defaultSubtitleSettings);
+        setResume(host ? matchingResume(readResume(r.id), next, metadata.duration) : undefined);
+        setPreflight({ phase: 'ready', name: next.name });
+      } catch (e) {
+        prepared.dispose();
+        if (id !== generation.current) return;
+        candidate.current = undefined;
+        const reload =
+          e instanceof Error &&
+          /fetch|dynamically imported module|module script|network/i.test(e.message);
+        setPreflight({
+          phase: !convert && e instanceof SourceError ? 'compatibility' : 'error',
+          name: next.name,
+          error: reload
+            ? '影片播放组件加载失败。请检查网络后刷新页面，再重新选片。'
+            : e instanceof Error
+              ? e.message
+              : '影片准备失败',
+          reload,
+        });
+      } finally {
+        if (committing.current === id) committing.current = 0;
+      }
+    },
+    [clear],
+  );
   const retry = useCallback((convert = false) => select(retryFile.current, convert), [select]);
   const chooseResume = useCallback(
     async (yes: boolean) => {
