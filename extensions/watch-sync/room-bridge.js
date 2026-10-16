@@ -19,7 +19,12 @@
       .then((r) => {
         if (r?.text)
           window.postMessage(
-            { channel: 'interlude-extension-status', text: r.text },
+            {
+              channel: 'interlude-extension-status',
+              text: r.text,
+              playerConnected: r.playerConnected === true,
+              confirmed: r.confirmed === true,
+            },
             location.origin,
           );
       })

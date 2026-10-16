@@ -27,7 +27,7 @@ export async function api<T>(url: string, data?: unknown): Promise<T> {
 export function connectRoom(roomId: string) {
   return io({
     transports: ['websocket'],
-    auth: { roomId, csrf },
+    auth: { roomId, csrf, protocolVersion: 2 },
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
   });

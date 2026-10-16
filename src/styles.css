@@ -684,6 +684,28 @@ p {
   color: #8d9399;
   font-size: 14px;
 }
+.file-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 2px;
+  font-size: 14px;
+  color: #a7adb3;
+  overflow-wrap: anywhere;
+}
+.file-confirmation label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.file-confirmation input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  accent-color: #c49651;
+}
 .ready-strip {
   display: flex;
   align-items: center;

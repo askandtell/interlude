@@ -1,55 +1,24 @@
-# 使用免费托管部署
+# 部署公共网址
 
-此路线使用 Render 二级域名和免费实例，配合自己的 LiveKit Cloud 项目。不需要购买域名或 VPS。体验站位于 <https://interlude-eoqk.onrender.com>，各项免费政策以服务商控制台为准。
+普通用户直接打开网址使用。部署者只需提供网站与房间数据服务；不需要音视频服务账号。
 
-首次部署的完整步骤见[入门指南](GETTING_STARTED.md)。
+## Render
 
-## 部署组成
+1. Fork 仓库，在 Render 创建 Blueprint，选择自己的仓库及根目录 `render.yaml`。
+2. 确认 Web Service 和 Key Value 均为 Free。不添加付费磁盘、副本或套餐。
+3. Blueprint 生成 `SESSION_SECRET` 并连接内网 `REDIS_URL`。应用使用 `RENDER_EXTERNAL_URL` 作为 HTTPS Origin。
+4. 部署后用两个浏览器分别选择自己的测试影片，验证邀请、审批与同步，再分享平台提供的网址。
 
-| 服务 | 用途 | 配置 |
-| --- | --- | --- |
-| Render Web Service | 网页、HTTP 和 Socket.IO | Node.js，Free，新加坡，单副本 |
-| Render Key Value | 房间与会话数据 | Free，仅内网访问，带 TTL |
-| LiveKit Cloud | 直连失败或多人房间的媒体转发 | 自己项目的 Build 套餐与额度 |
+启动命令为 `npm start`，构建使用 `npm ci --include=dev && npm run build && npm prune --omit=dev`。默认关闭自动部署；更新配置时先同步 Blueprint，再手动部署。
 
-`render.yaml` 默认将两个 Render 服务设为 Free，关闭自动部署，不配置付费磁盘。部署前仍需检查控制台显示的规格；若要求付费或绑定支付方式，请停止并确认自己的选择。
+## 资源与限制
 
-## 需要填写的变量
+网站、房间状态和文字聊天仍使用部署者的基础托管资源。没有视频转发、语音或媒体参与者分钟。人数增长仍会增加连接数和控制消息，不能无限扩展。
 
-- `LIVEKIT_URL`：自己项目的 WSS 地址。
-- `LIVEKIT_API_KEY`、`LIVEKIT_API_SECRET`：自己创建的服务端密钥。
-- `SESSION_SECRET`：Blueprint 自动生成。
-- `REDIS_URL`：由内网 Key Value 自动提供。
+免费实例可能休眠、暂停或丢失房间数据；境外节点在国内的可达性取决于实际网络。当前使用单个控制服务实例，增加副本前需要实现跨进程房间协调。
 
-应用在 Render 上使用 `RENDER_EXTERNAL_URL` 作为准确的 HTTPS Origin。密钥不能放进源码、前端 `VITE_*` 变量或问题反馈。
+## 从旧版升级
 
-构建命令显式安装构建工具，随后删除开发依赖：
+更新会结束旧协议房间，用户需要刷新并重新创建。新版验证通过后，移除旧媒体环境变量，撤销一起看专用媒体密钥及 Webhook；不要改动同一账号下其他项目。
 
-```sh
-npm ci --include=dev --registry=https://registry.npmjs.org
-npm run build
-npm prune --omit=dev
-```
-
-部署后，在 LiveKit Webhooks 中添加 `https://你的服务.onrender.com/api/livekit/webhook`，使用同一把 API key 签名。先检查健康状态，再用两个独立浏览器验证实际画面和声音。
-
-## 使用限制
-
-Render 免费应用闲置后会休眠，首次唤醒可能需要一分钟左右；Key Value 重启可能丢失房间数据。免费实例小时、流量或媒体额度耗尽时，服务可能暂停。不要用外部保活脚本规避平台规则。
-
-成功直连不连接 LiveKit，但控制服务仍需运行。转发流量随观看人数和码率增加。应用不升级套餐，也没有实现账单级额度硬限额；部署者应检查自己的套餐与支付设置。
-
-公开仓库提供软件，不提供共享云服务额度。别人自行部署时使用他们自己的账号与密钥。若广泛分享同一个体验站，陌生访客也可能消耗该站的资源。
-
-境外免费节点在国内的表现取决于运营商和实际链路。网页能打开，不代表媒体一定可用；不同网络、真实手机和长时间播放仍需单独测试。
-
-## 更新实例
-
-1. 更新自己的 Fork，检查配置仍符合预期。
-2. 若改动了 `render.yaml`，手动同步 Blueprint。
-3. 手动部署最新提交，等待健康检查成功。
-4. 测试创建、邀请、直连与转发后再通知朋友使用。
-
-重启可能中断现有放映，尽量安排在空闲时更新。
-
-参考：[Render 免费实例](https://render.com/docs/free)、[Blueprint](https://render.com/docs/blueprint-spec)、[LiveKit 套餐](https://livekit.com/pricing)。
+[Render 免费规格](https://render.com/docs/free) · [Blueprint 文档](https://render.com/docs/blueprint-spec)

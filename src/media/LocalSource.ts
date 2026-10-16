@@ -27,7 +27,6 @@ export interface MediaSourceAdapter {
   element: HTMLVideoElement;
   mount(container: HTMLElement, height: 720 | 1080): void;
   prepare(file: File, convert: boolean): Promise<SourceInfo>;
-  stream(height: 720 | 1080): Promise<MediaStream>;
   play(): Promise<void>;
   pause(): void;
   seek(seconds: number): void;
@@ -39,8 +38,6 @@ export class LocalSource implements MediaSourceAdapter {
   element = document.createElement('video');
   private url?: string;
   private transcoder?: ClientTranscoder;
-  private captured?: MediaStream;
-  private output?: MediaStream;
   private canvas?: HTMLCanvasElement;
   private timer?: number;
   private cues: Cue[] = [];
@@ -54,15 +51,11 @@ export class LocalSource implements MediaSourceAdapter {
     this.element.setAttribute('aria-label', '本地影片预览');
   }
   static supported() {
-    return (
-      !!(HTMLMediaElement.prototype as HTMLMediaElement & { captureStream?: () => MediaStream })
-        .captureStream && typeof RTCPeerConnection !== 'undefined'
-    );
+    return typeof HTMLVideoElement !== 'undefined';
   }
   async prepare(file: File, convert: boolean) {
     if (!file.size) throw new Error('这个文件是空的，请重新选择');
-    if (!LocalSource.supported())
-      throw new Error('本浏览器不能放映本地文件，请使用桌面 Chrome 或 Edge；仍可以观看朋友的放映');
+    if (!LocalSource.supported()) throw new Error('本浏览器不支持本地视频播放，请换用其他浏览器');
     const mb = await import('mediabunny');
     if (this.disposed) throw new Error('已取消选片');
     const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
@@ -143,29 +136,6 @@ export class LocalSource implements MediaSourceAdapter {
       );
     });
   }
-  async stream(height: 720 | 1080) {
-    if (this.output) return this.output;
-    const el = this.element as HTMLVideoElement & { captureStream(): MediaStream };
-    // Decoders create audio tracks when playback begins. A short muted warm-up is local only.
-    const wasMuted = el.muted;
-    el.muted = true;
-    await el.play();
-    this.captured = el.captureStream();
-    await new Promise((resolve) => setTimeout(resolve, 120));
-    el.pause();
-    el.muted = wasMuted;
-    if (this.disposed) {
-      this.captured.getTracks().forEach((track) => track.stop());
-      throw new Error('放映已取消');
-    }
-    this.compositor(height);
-    const canvas = this.canvas!;
-    this.output = new MediaStream([
-      ...canvas.captureStream(30).getVideoTracks(),
-      ...this.captured.getAudioTracks(),
-    ]);
-    return this.output;
-  }
   mount(container: HTMLElement, height: 720 | 1080) {
     container.appendChild(this.element);
     this.compositor(height);
@@ -177,7 +147,7 @@ export class LocalSource implements MediaSourceAdapter {
     const scale = Math.min(1, height / (el.videoHeight || height));
     const canvas = (this.canvas = document.createElement('canvas'));
     canvas.className = 'local-composite';
-    canvas.setAttribute('aria-label', '共享画面预览');
+    canvas.setAttribute('aria-label', '本地影片与个人字幕');
     canvas.width = Math.max(2, Math.round(((el.videoWidth || 1280) * scale) / 2) * 2);
     canvas.height = Math.max(2, Math.round(((el.videoHeight || 720) * scale) / 2) * 2);
     const ctx = canvas.getContext('2d', { alpha: false })!;
@@ -226,7 +196,6 @@ export class LocalSource implements MediaSourceAdapter {
     this.element.pause();
     this.transcoder?.stop();
     window.clearInterval(this.timer);
-    for (const stream of [this.output, this.captured]) stream?.getTracks().forEach((t) => t.stop());
     if (this.url) URL.revokeObjectURL(this.url);
     this.element.removeAttribute('src');
     this.element.load();

@@ -6,7 +6,7 @@ if (!origin || new URL(origin).protocol !== 'https:')
   throw new Error('Set PUBLIC_E2E_URL to the deployed HTTPS origin');
 export default defineConfig({
   ...local,
-  testMatch: ['public.spec.ts', 'admission.spec.ts'],
+  testMatch: ['together.spec.ts', 'admission.spec.ts'],
   webServer: undefined,
   timeout: 180000,
   expect: { timeout: 30000 },

@@ -1,7 +1,4 @@
 import { defineConfig } from '@playwright/test';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-const microphone = path.resolve('.cache/fixtures/microphone.wav');
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60000,
@@ -15,10 +12,7 @@ export default defineConfig({
     launchOptions: {
       executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH,
       args: [
-        '--use-fake-ui-for-media-stream',
-        '--use-fake-device-for-media-stream',
         '--autoplay-policy=no-user-gesture-required',
-        ...(existsSync(microphone) ? [`--use-file-for-fake-audio-capture=${microphone}`] : []),
       ],
     },
   },

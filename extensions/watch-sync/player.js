@@ -6,7 +6,7 @@
   panel.style.cssText = 'position:fixed;left:16px;bottom:18px;z-index:2147483647';
   const root = panel.attachShadow({ mode: 'open' });
   root.innerHTML =
-    '<style>:host{all:initial}section{max-width:290px;padding:14px;border-radius:12px;background:#181a1b;color:#f7f6f2;box-shadow:0 4px 24px #0006;font:14px/1.5 system-ui}button{min-height:44px;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit;background:#f7f6f2;color:#181a1b}button:focus-visible{outline:3px solid #dcaa62}p{margin:8px 0}</style><section><strong>幕间 · 网站同步</strong><p role="status">请先完成登录、广告并进入正片。</p><button>我已进入正片，开启同步</button></section>';
+    '<style>:host{all:initial}section{max-width:290px;padding:14px;border-radius:12px;background:#181a1b;color:#f7f6f2;box-shadow:0 4px 24px #0006;font:14px/1.5 system-ui}button{min-height:44px;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit;background:#f7f6f2;color:#181a1b}button:focus-visible{outline:3px solid #dcaa62}p{margin:8px 0}</style><section><strong>一起看 · 网站同步</strong><p role="status">请先完成登录、广告并进入正片。</p><button>我已进入正片，开启同步</button></section>';
   document.documentElement.append(panel);
   const button = root.querySelector('button'),
     label = root.querySelector('p');
@@ -38,7 +38,9 @@
       stop();
       return;
     }
-    const videos = [...document.querySelectorAll('video')].filter((v) => {
+    const videos = (
+      globalThis.__interludeSiteAdapter?.videos() || [...document.querySelectorAll('video')]
+    ).filter((v) => {
       const r = v.getBoundingClientRect();
       return r.width > 100 && r.height > 80 && Number.isFinite(v.duration) && v.duration > 0;
     });
@@ -59,11 +61,11 @@
     if (busy) return;
     busy = true;
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'poll', status });
+      const result = await chrome.runtime.sendMessage({ type: 'poll', status, enabled });
       if (!enabled) return;
       const s = result?.snapshot;
       if (!s) {
-        stop('房间连接中断或同步已断开，影片已暂停。请回到幕间检查。');
+        stop('房间连接中断或同步已断开，影片已暂停。请回到一起看检查。');
         return;
       }
       if (

@@ -10,8 +10,8 @@
 
 | 目录 | 内容 |
 | --- | --- |
-| `src/` | React 页面、组件、媒体连接和本地文件处理 |
-| `server/` | 房间、权限、Socket.IO、Redis 和 LiveKit 凭证 |
+| `src/` | React 页面、组件、同步播放和本地文件处理 |
+| `server/` | 房间、权限、Socket.IO、Redis 和播放同步 |
 | `shared/` | 前后端共用的协议与校验 |
 | `extensions/watch-sync/` | 实验性视频网站同步扩展 |
 | `tests/` | 服务测试和 Playwright 浏览器测试 |
@@ -29,12 +29,12 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-媒体相关测试需要额外准备 FFmpeg、测试片和 LiveKit，详见[测试说明](docs/TEST_REPORT.md)。没有运行的检查请在 PR 中注明。
+媒体相关测试需要额外准备 FFmpeg 和测试片，详见[测试说明](docs/TEST_REPORT.md)。没有运行的检查请在 PR 中注明。
 
 `.env`、本地媒体配置和测试输出应留在忽略目录中。截图与日志请隐藏邀请链接、Cookie、密钥和私人聊天。`npm run security:secrets` 可检查常见误提交，但提交前仍应查看自己的 diff。
 
 ## 报告问题
 
-请说明浏览器与系统版本、使用直连还是转发、复现步骤，以及预期和实际结果。音画问题还可以注明文件编码、分辨率和是否包含音轨，无需上传私人视频。
+请说明浏览器与系统版本、使用本地文件还是网站模式、复现步骤，以及预期和实际结果。音画问题还可以注明文件编码、分辨率和是否包含音轨，无需上传私人视频。
 
 涉及密钥泄露或可利用的安全问题，请先通过仓库维护者公开的联系方式私下联系，不要在公开 Issue 中附上敏感信息。安全设计见[安全说明](docs/SECURITY.md)。

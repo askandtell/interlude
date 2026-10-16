@@ -24,12 +24,6 @@ services:
           type: keyvalue
           name: interlude-rooms
           property: connectionString
-      - key: LIVEKIT_URL
-        sync: false
-      - key: LIVEKIT_API_KEY
-        sync: false
-      - key: LIVEKIT_API_SECRET
-        sync: false
   - type: keyvalue
     name: interlude-rooms
     plan: free

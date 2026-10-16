@@ -1,5 +1,5 @@
 {
-  "name": "interlude-cinema",
+  "name": "yiqikan",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,14 +17,12 @@
     "test:public": "playwright test -c playwright.public.config.ts",
     "check": "npm run typecheck && npm test && npm run build && npm run security:secrets",
     "security:secrets": "node scripts/check-secrets.mjs",
-    "infra": "docker compose up -d redis livekit",
+    "infra": "docker compose up -d redis",
     "test:media": "node scripts/media-fixtures.mjs",
     "format": "prettier --write src tests/e2e tests/experience.test.ts scripts/licenses.mjs extensions/watch-sync shared/website.ts tests/website.test.ts",
-    "format:check": "prettier --check src tests/e2e tests/experience.test.ts scripts/licenses.mjs extensions/watch-sync shared/website.ts tests/website.test.ts",
-    "media:local": "node scripts/media-local.mjs"
+    "format:check": "prettier --check src tests/e2e tests/experience.test.ts scripts/licenses.mjs extensions/watch-sync shared/website.ts tests/website.test.ts"
   },
   "dependencies": {
-    "@livekit/protocol": "1.52.1",
     "@mantine/core": "8.3.10",
     "@mantine/hooks": "8.3.10",
     "@mediabunny/ac3": "1.61.3",
@@ -33,8 +31,6 @@
     "express": "5.2.1",
     "helmet": "8.1.0",
     "ioredis": "5.8.2",
-    "livekit-client": "2.22.4",
-    "livekit-server-sdk": "2.19.1",
     "mediabunny": "1.61.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
