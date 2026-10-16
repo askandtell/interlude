@@ -58,6 +58,11 @@ describe('independent playback synchronization', () => {
   });
   it('keeps paused sources on disconnect and closes legacy rooms during recovery', async () => {
     const { rooms, id, command } = await fixture();
+    const before = await rooms.snapshot(id, 'guest');
+    await rooms.viewing(id, 'guest', before.mediaEpoch, 'watching', 60);
+    await rooms.presence(id, 'guest', false);
+    const disconnected = await rooms.snapshot(id, 'guest');
+    expect(disconnected.members.find((m) => m.id === disconnected.selfId)?.viewing).toBe('not-ready');
     await command({ kind: 'play' });
     await rooms.presence(id, 'owner', false);
     expect((await rooms.snapshot(id, 'owner')).playback.paused).toBe(true);
