@@ -32,8 +32,8 @@ test('new requests are visible from chat and a collapsed sidebar; review opens a
     await expect(page.getByRole('heading', { name: '等待批准', exact: true })).toBeFocused();
     await page.getByRole('button', { name: '批准 小雨', exact: true }).click();
     await expect(
-      guest.getByRole('button', { name: '开始观看', exact: true }).first(),
-    ).toBeEnabled();
+      guest.getByRole('button', { name: '选择自己的影片', exact: true }).first(),
+    ).toBeVisible();
     await expect(page.locator('.admission-notice')).toHaveCount(0);
   } finally {
     await context.close();
@@ -77,8 +77,8 @@ test('chat shows multiple requests and the queue survives a host refresh', async
     await page.getByRole('button', { name: '批准 小雨', exact: true }).click();
     await page.getByRole('button', { name: '拒绝 小林', exact: true }).click();
     await expect(
-      first.guest.getByRole('button', { name: '开始观看', exact: true }).first(),
-    ).toBeEnabled();
+      first.guest.getByRole('button', { name: '选择自己的影片', exact: true }).first(),
+    ).toBeVisible();
     await expect(second.guest.getByRole('heading', { name: '申请未通过' })).toBeVisible();
     await expect(page.locator('.admission-notice')).toHaveCount(0);
   } finally {
@@ -134,8 +134,8 @@ test('fullscreen requests remain visible and review exits fullscreen without los
     await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
     await page.getByRole('button', { name: '批准 小雨', exact: true }).click();
     await expect(
-      guest.getByRole('button', { name: '开始观看', exact: true }).first(),
-    ).toBeEnabled();
+      guest.getByRole('button', { name: '选择自己的影片', exact: true }).first(),
+    ).toBeVisible();
   } finally {
     await context.close();
   }

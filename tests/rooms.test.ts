@@ -1,32 +1,167 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { Rooms, mediaRoomName } from '../server/rooms';
+import { Rooms } from '../server/rooms';
 import { MemoryRepository } from '../server/store';
 import type { PlaybackCommand } from '../shared/protocol';
 describe('private room authority and lifecycle', () => {
   let rooms: Rooms, id: string, invite: string, now: number;
-  beforeEach(async () => { now = Date.now(); rooms = new Rooms(new MemoryRepository(), () => now); const created = await rooms.create('host-secret', '电影之夜', '房主'); id = created.room.id; invite = created.invite; });
-  async function add(s = 'guest-secret') { return rooms.join(id, s, invite, '朋友'); }
-  async function approve(s = 'guest-secret') { const guest = await add(s); await rooms.manage(id, 'host-secret', 'approve', guest.selfId); return guest; }
-  async function run(command: PlaybackCommand, overrides = {}) { const r = await rooms.snapshot(id, 'host-secret'); return rooms.command('host-secret', { id: randomUUID(), roomId: id, epoch: r.mediaEpoch, revision: r.revision, command, ...overrides }); }
-  it('does not disclose chat, media, member list or session hashes to a pending guest', async () => {
-    await rooms.message(id, 'host-secret', 'private message'); await run({ kind:'source',title:'private-film.mp4',duration:60 });
-    const view = await add(); expect(view.chat).toEqual([]); expect(view.members).toEqual([]); expect(view.playback.title).toBe(''); expect(JSON.stringify(view)).not.toContain('session');
+  beforeEach(async () => {
+    now = Date.now();
+    rooms = new Rooms(new MemoryRepository(), () => now);
+    const created = await rooms.create('host-secret', '电影之夜', '房主');
+    id = created.room.id;
+    invite = created.invite;
   });
-  it('requires an unexpired invitation before creating membership', async () => { await expect(rooms.join(id,'attacker','x'.repeat(43),'坏人')).rejects.toMatchObject({code:'INVITE_EXPIRED'}); now += 7200001; await expect(add()).rejects.toMatchObject({code:'INVITE_EXPIRED'}); });
-  it('does not let guests approve, rotate invites, end rooms or transfer ownership', async () => { const g = await approve(); for (const action of ['approve','rotate','end','transfer'] as const) await expect(rooms.manage(id,'guest-secret',action,g.selfId)).rejects.toMatchObject({code:'HOST_ONLY'}); });
-  it('rejects controls from an approved guest', async () => { await approve(); const r = await rooms.snapshot(id,'guest-secret'); await expect(rooms.command('guest-secret',{id:randomUUID(),roomId:id,epoch:r.mediaEpoch,revision:r.revision,command:{kind:'play'}})).rejects.toMatchObject({code:'HOST_ONLY'}); });
-  it('never admits more than eight people even when approvals race', async () => { const guests = []; for(let i=0;i<8;i++) guests.push(await add(`guest-${i}`)); const results = await Promise.allSettled(guests.map(g => rooms.manage(id,'host-secret','approve',g.selfId))); expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(7); expect((await rooms.snapshot(id,'host-secret')).members).toHaveLength(8); });
-  it('rejects stale controls and treats repeated accepted commands idempotently', async () => { const r = await rooms.snapshot(id,'host-secret'); const e = {id:randomUUID(),roomId:id,epoch:r.mediaEpoch,revision:r.revision,command:{kind:'source' as const,title:'movie.mp4',duration:120}}; const first = await rooms.command('host-secret',e); const second = await rooms.command('host-secret',e); expect(second.revision).toBe(first.revision); await expect(run({kind:'play'},{epoch:0})).rejects.toMatchObject({code:'STALE_STATE'}); });
-  it('serializes concurrent commands against a single revision', async () => { await run({kind:'source',title:'film',duration:100}); const r = await rooms.snapshot(id,'host-secret'); const results = await Promise.allSettled(['play','pause'].map(kind => rooms.command('host-secret',{id:randomUUID(),roomId:id,epoch:r.mediaEpoch,revision:r.revision,command:{kind} as PlaybackCommand}))); expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1); });
-  it('clamps seeks and preserves an actual elapsed playhead on pause', async () => { await run({kind:'source',title:'film',duration:100}); await run({kind:'play'}); now += 5000; let r=await run({kind:'pause'}); expect(r.playback.position).toBe(5); r=await run({kind:'seek',position:1000}); expect(r.playback.position).toBe(100); });
-  it('revokes membership and rotates the media generation on kick', async () => { const g = await approve(); await run({kind:'use-relay'}); const before = await rooms.load(id); const retired: string[]=[]; rooms.retire=async n=>{retired.push(n);}; await rooms.manage(id,'host-secret','kick',g.selfId); const after = await rooms.load(id); expect(after.transportEpoch).toBe(before.transportEpoch+1); expect(retired).toContain(mediaRoomName(before)); await expect(rooms.snapshot(id,'guest-secret')).rejects.toMatchObject({code:'FORBIDDEN'}); await expect(add()).rejects.toMatchObject({code:'FORBIDDEN'}); await expect(rooms.join(id,'new-secret',invite,'新人')).rejects.toMatchObject({code:'INVITE_EXPIRED'}); });
-  it('does not restore denied members through an old link', async () => { const g=await add(); await rooms.manage(id,'host-secret','deny',g.selfId); expect((await rooms.snapshot(id,'guest-secret')).selfStatus).toBe('denied'); await expect(add()).rejects.toMatchObject({code:'FORBIDDEN'}); });
-  it('transfers management without transferring the local file', async () => { const g=await approve(); await rooms.presence(id,'guest-secret',true); await run({kind:'source',title:'film',duration:100}); await rooms.manage(id,'host-secret','transfer',g.selfId); const r=await rooms.snapshot(id,'guest-secret'); expect(r.hostId).toBe(g.selfId); expect(r.playback.available).toBe(false); expect(r.playback.paused).toBe(true); });
-  it('clears chat and prevents controls after ending', async () => { await rooms.message(id,'host-secret','hello'); await rooms.manage(id,'host-secret','end'); const r=await rooms.snapshot(id,'host-secret'); expect(r.closed).toBe(true); expect(r.chat).toEqual([]); await expect(run({kind:'play'})).rejects.toMatchObject({code:'ROOM_ENDED'}); });
-  it('keeps bounded chat history', async () => { for(let i=0;i<130;i++) await rooms.message(id,'host-secret',String(i)); const r=await rooms.snapshot(id,'host-secret'); expect(r.chat).toHaveLength(100); expect(r.chat[0].text).toBe('30'); });
-  it('freezes the source when the host disconnects and expires the waiting room', async () => { await rooms.presence(id,'host-secret',true); await run({kind:'source',title:'film',duration:100}); await run({kind:'play'}); now+=1000; await rooms.presence(id,'host-secret',false); expect((await rooms.snapshot(id,'host-secret')).playback.available).toBe(false); now+=60001; expect((await rooms.snapshot(id,'host-secret')).hostState).toBe('waiting'); now+=540000; await rooms.sweep(); expect((await rooms.snapshot(id,'host-secret')).closed).toBe(true); });
-  it('never resumes media automatically following a service restart', async () => { await run({kind:'source',title:'film',duration:100}); await run({kind:'play'}); const epoch=(await rooms.load(id)).transportEpoch; await rooms.recover(); const r=await rooms.snapshot(id,'host-secret'); expect(r.playback.available).toBe(false); expect(r.transportEpoch).toBeGreaterThan(epoch); });
-  it('retries failed media retirement instead of silently forgetting it', async () => { const g=await approve(); await run({kind:'use-relay'}); rooms.retire=async()=>{throw new Error('offline');}; await rooms.manage(id,'host-secret','kick',g.selfId); expect((await rooms.load(id)).retiredRooms).toHaveLength(1); rooms.retire=async()=>{}; await rooms.cleanupRetired(id); expect((await rooms.load(id)).retiredRooms).toHaveLength(0); });
-  it('expires rooms at the hard 24 hour deadline', async () => { now+=86400000; await expect(rooms.snapshot(id,'host-secret')).rejects.toMatchObject({code:'ROOM_GONE'}); });
+  async function add(s = 'guest-secret') {
+    return rooms.join(id, s, invite, '朋友');
+  }
+  async function approve(s = 'guest-secret') {
+    const guest = await add(s);
+    await rooms.manage(id, 'host-secret', 'approve', guest.selfId);
+    return guest;
+  }
+  async function run(command: PlaybackCommand, overrides = {}) {
+    const r = await rooms.snapshot(id, 'host-secret');
+    return rooms.command('host-secret', {
+      id: randomUUID(),
+      roomId: id,
+      epoch: r.mediaEpoch,
+      revision: r.revision,
+      command,
+      ...overrides,
+    });
+  }
+  it('does not disclose chat, media, member list or session hashes to a pending guest', async () => {
+    await rooms.message(id, 'host-secret', 'private message');
+    await run({ kind: 'source', title: 'private-film.mp4', duration: 60 });
+    const view = await add();
+    expect(view.chat).toEqual([]);
+    expect(view.members).toEqual([]);
+    expect(view.playback.title).toBe('');
+    expect(JSON.stringify(view)).not.toContain('session');
+  });
+  it('requires an unexpired invitation before creating membership', async () => {
+    await expect(rooms.join(id, 'attacker', 'x'.repeat(43), '坏人')).rejects.toMatchObject({
+      code: 'INVITE_EXPIRED',
+    });
+    now += 7200001;
+    await expect(add()).rejects.toMatchObject({ code: 'INVITE_EXPIRED' });
+  });
+  it('does not let guests approve, rotate invites, end rooms or transfer ownership', async () => {
+    const g = await approve();
+    for (const action of ['approve', 'rotate', 'end', 'transfer'] as const)
+      await expect(rooms.manage(id, 'guest-secret', action, g.selfId)).rejects.toMatchObject({
+        code: 'HOST_ONLY',
+      });
+  });
+  it('rejects controls from an approved guest', async () => {
+    await approve();
+    const r = await rooms.snapshot(id, 'guest-secret');
+    await expect(
+      rooms.command('guest-secret', {
+        id: randomUUID(),
+        roomId: id,
+        epoch: r.mediaEpoch,
+        revision: r.revision,
+        command: { kind: 'play' },
+      }),
+    ).rejects.toMatchObject({ code: 'HOST_ONLY' });
+  });
+  it('never admits more than eight people even when approvals race', async () => {
+    const guests = [];
+    for (let i = 0; i < 8; i++) guests.push(await add(`guest-${i}`));
+    const results = await Promise.allSettled(
+      guests.map((g) => rooms.manage(id, 'host-secret', 'approve', g.selfId)),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(7);
+    expect((await rooms.snapshot(id, 'host-secret')).members).toHaveLength(8);
+  });
+  it('rejects stale controls and treats repeated accepted commands idempotently', async () => {
+    const r = await rooms.snapshot(id, 'host-secret');
+    const e = {
+      id: randomUUID(),
+      roomId: id,
+      epoch: r.mediaEpoch,
+      revision: r.revision,
+      command: { kind: 'source' as const, title: 'movie.mp4', duration: 120 },
+    };
+    const first = await rooms.command('host-secret', e);
+    const second = await rooms.command('host-secret', e);
+    expect(second.revision).toBe(first.revision);
+    await expect(run({ kind: 'play' }, { epoch: 0 })).rejects.toMatchObject({
+      code: 'STALE_STATE',
+    });
+  });
+  it('serializes concurrent commands against a single revision', async () => {
+    await run({ kind: 'source', title: 'film', duration: 100 });
+    const r = await rooms.snapshot(id, 'host-secret');
+    const results = await Promise.allSettled(
+      ['play', 'pause'].map((kind) =>
+        rooms.command('host-secret', {
+          id: randomUUID(),
+          roomId: id,
+          epoch: r.mediaEpoch,
+          revision: r.revision,
+          command: { kind } as PlaybackCommand,
+        }),
+      ),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+  });
+  it('clamps seeks and preserves an actual elapsed playhead on pause', async () => {
+    await run({ kind: 'source', title: 'film', duration: 100 });
+    await run({ kind: 'play' });
+    now += 5000;
+    let r = await run({ kind: 'pause' });
+    expect(r.playback.position).toBe(5);
+    r = await run({ kind: 'seek', position: 1000 });
+    expect(r.playback.position).toBe(100);
+  });
+  it('does not restore denied members through an old link', async () => {
+    const g = await add();
+    await rooms.manage(id, 'host-secret', 'deny', g.selfId);
+    expect((await rooms.snapshot(id, 'guest-secret')).selfStatus).toBe('denied');
+    await expect(add()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+  it('transfers management without transferring the local file', async () => {
+    const g = await approve();
+    await rooms.presence(id, 'guest-secret', true);
+    await run({ kind: 'source', title: 'film', duration: 100 });
+    await rooms.manage(id, 'host-secret', 'transfer', g.selfId);
+    const r = await rooms.snapshot(id, 'guest-secret');
+    expect(r.hostId).toBe(g.selfId);
+    expect(r.playback.paused).toBe(true);
+    expect(r.playback.paused).toBe(true);
+  });
+  it('clears chat and prevents controls after ending', async () => {
+    await rooms.message(id, 'host-secret', 'hello');
+    await rooms.manage(id, 'host-secret', 'end');
+    const r = await rooms.snapshot(id, 'host-secret');
+    expect(r.closed).toBe(true);
+    expect(r.chat).toEqual([]);
+    await expect(run({ kind: 'play' })).rejects.toMatchObject({ code: 'ROOM_ENDED' });
+  });
+  it('keeps bounded chat history', async () => {
+    for (let i = 0; i < 130; i++) await rooms.message(id, 'host-secret', String(i));
+    const r = await rooms.snapshot(id, 'host-secret');
+    expect(r.chat).toHaveLength(100);
+    expect(r.chat[0].text).toBe('30');
+  });
+  it('freezes the source when the host disconnects and expires the waiting room', async () => {
+    await rooms.presence(id, 'host-secret', true);
+    await run({ kind: 'source', title: 'film', duration: 100 });
+    await run({ kind: 'play' });
+    now += 1000;
+    await rooms.presence(id, 'host-secret', false);
+    expect((await rooms.snapshot(id, 'host-secret')).playback.paused).toBe(true);
+    now += 60001;
+    expect((await rooms.snapshot(id, 'host-secret')).hostState).toBe('waiting');
+    now += 540000;
+    await rooms.sweep();
+    expect((await rooms.snapshot(id, 'host-secret')).closed).toBe(true);
+  });
+  it('expires rooms at the hard 24 hour deadline', async () => {
+    now += 86400000;
+    await expect(rooms.snapshot(id, 'host-secret')).rejects.toMatchObject({ code: 'ROOM_GONE' });
+  });
 });

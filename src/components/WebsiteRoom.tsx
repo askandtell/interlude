@@ -8,8 +8,6 @@ export function WebsiteRoom({
   control,
   local,
   change,
-  mic,
-  onMic,
   onChat,
   run,
 }: {
@@ -18,14 +16,13 @@ export function WebsiteRoom({
   control: (c: PlaybackCommand) => Promise<unknown>;
   local: () => void;
   change: () => void;
-  mic: boolean;
-  onMic: () => Promise<void>;
   onChat: () => void;
   run: (p: Promise<unknown>) => void;
 }) {
   const [seconds, setSeconds] = useState('0'),
     [now, setNow] = useState(Date.now()),
     [extension, setExtension] = useState('尚未连接同步扩展');
+  const [bridge, setBridge] = useState({ installed: false, player: false, confirmed: false });
   const receivedAt = useMemo(() => Date.now(), [room]);
   const host = room.selfId === room.hostId;
   const source = room.playback.website!;
@@ -44,12 +41,20 @@ export function WebsiteRoom({
         return;
       if (typeof e.data.text === 'string') {
         last = Date.now();
+        setBridge({
+          installed: true,
+          player: e.data.playerConnected === true,
+          confirmed: e.data.confirmed === true,
+        });
         setExtension(e.data.text.slice(0, 160));
       }
     }
     window.addEventListener('message', message);
     const check = setInterval(() => {
-      if (Date.now() - last > 6000) setExtension('尚未连接同步扩展');
+      if (Date.now() - last > 6000) {
+        setExtension('尚未连接同步扩展');
+        setBridge({ installed: false, player: false, confirmed: false });
+      }
     }, 2000);
     return () => {
       clearInterval(check);
@@ -68,7 +73,7 @@ export function WebsiteRoom({
       <div className="website-stage">
         <span className="website-eyebrow">网站一起看 · 实验性</span>
         <h2>{source.provider}</h2>
-        <p>影片在官方网页播放。每个人使用自己的账号和观看权限，幕间只同步时间与操作。</p>
+        <p>影片在官方网页播放。每个人使用自己的账号和观看权限，一起看只同步时间与操作。</p>
         <a className="light-button" href={source.url} target="_blank" rel="noopener noreferrer">
           打开官方播放页 ↗
         </a>
@@ -76,6 +81,14 @@ export function WebsiteRoom({
           {clock(position)}
         </div>
         <span>{room.playback.paused ? '房间时间已暂停' : '房间时间正在前进'}</span>
+        <div className="website-status" aria-label="网站同步状态">
+          <p>扩展：{bridge.installed ? '已连接' : '未连接，请安装并连接扩展'}</p>
+          <p>
+            房间：{connected ? '已连接' : '连接中断'} · 播放器：
+            {bridge.player ? '已连接' : '等待打开官网播放页'} · 正片：
+            {bridge.confirmed ? '已确认' : '等待本人确认'}
+          </p>
+        </div>
         <p role="status" className="website-status">
           {extension}
         </p>
@@ -124,9 +137,6 @@ export function WebsiteRoom({
         ) : (
           <span>播放和跳转由房主控制；无扩展时请按房间时间手动对齐。</span>
         )}
-        <button className="secondary-button" disabled={!connected} onClick={() => run(onMic())}>
-          {mic ? '关闭麦克风' : '开启麦克风'}
-        </button>
         <button className="secondary-button" onClick={onChat}>
           聊天与成员
         </button>
@@ -141,11 +151,11 @@ export function WebsiteRoom({
           </li>
         </ol>
         <p>
-          在幕间控制播放和时间。自动同步不会反向采集网站操作；在网站上拖动后，请房主在这里设置对应时间。广告、试看、切集或播放器更换时先停止同步，进入同一集正片后再开启。自动连播和跨设备播放未支持。
+          在一起看控制播放和时间。自动同步不会反向采集网站操作；在网站上拖动后，请房主在这里设置对应时间。广告、试看、切集或播放器更换时先停止同步，进入同一集正片后再开启。自动连播和跨设备播放未支持。
         </p>
         <p>
           扩展不下载视频、不共享账号、不绕过广告、会员或
-          DRM。平台适配尚未经四站真实账号完整验收。没有扩展时仍可语音聊天、查看房间时间并手动同步。
+          DRM。平台适配尚未经四站真实账号完整验收。没有扩展时仍可文字聊天、查看房间时间并手动同步。
         </p>
       </details>
     </section>

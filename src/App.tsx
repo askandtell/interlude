@@ -30,21 +30,20 @@ import {
 } from '@tabler/icons-react';
 import type { PlaybackCommand, RoomView } from '../shared/protocol';
 import { api, session } from './api';
-import { DevicePanel } from './components/DevicePanel';
 import { AdmissionNotice } from './components/AdmissionNotice';
 import { Player } from './components/Player';
 import { RoomSidebar } from './components/RoomSidebar';
 import { useLocalFilm } from './hooks/useLocalFilm';
-import { usePlaybackConnection } from './hooks/usePlaybackConnection';
+import { useTogetherPlayback } from './hooks/useTogetherPlayback';
 import { useRoomSession } from './hooks/useRoomSession';
 import { rememberRoom, recents } from './ui';
 
 function Logo() {
   return (
     <span className="wordmark">
-      <strong>幕间</strong>
+      <strong>一起看</strong>
       <i />
-      <span>Interlude</span>
+      <span>私人放映室</span>
     </span>
   );
 }
@@ -71,33 +70,14 @@ export default function App() {
   const [side, setSide] = useState<'chat' | 'members'>('chat'),
     [sidebar, setSidebar] = useState(true),
     [mobileSidebar, setMobileSidebar] = useState(false);
-  const [quality, setQuality] = useState<720 | 1080>(720),
-    [convert, setConvert] = useState(false),
+  const [convert, setConvert] = useState(false),
     [time, setTime] = useState(0);
-  const [filmVolume, setFilmVolume] = useState(() => preference('interlude-film-volume', 0.8)),
-    [voiceVolume, setVoiceVolume] = useState(() => preference('interlude-voice-volume', 0.8));
-  const [deviceId, setDeviceId] = useState(() => {
-    try {
-      return localStorage.getItem('interlude-microphone') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [outputId, setOutputId] = useState(() => {
-    try {
-      return localStorage.getItem('interlude-output') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [health, setHealth] = useState<{ media: boolean; status: string }>(),
-    [recentList, setRecentList] = useState(recents);
+  const [filmVolume, setFilmVolume] = useState(() => preference('interlude-film-volume', 0.8));
+  const [recentList, setRecentList] = useState(recents);
   const stage = useRef<HTMLDivElement>(null),
-    movie = useRef<HTMLVideoElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     subtitleInput = useRef<HTMLInputElement>(null);
   const initialInvite = useRef(new URLSearchParams(location.hash.slice(1)).get('invite') || '');
-  const resetMedia = useRef<() => Promise<void>>(async () => {});
   const roomId = path.match(/^\/room\/([A-Za-z0-9_-]{16,64})$/)?.[1];
   const mobile = useMediaQuery('(max-width: 760px)');
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -117,30 +97,22 @@ export default function App() {
   useWebsiteBridge(room, connected);
   const [websiteOpen, setWebsiteOpen] = useState(false),
     [websiteUrl, setWebsiteUrl] = useState('');
-  const beforeCommit = useCallback(() => resetMedia.current(), []);
   const film = useLocalFilm({
-    roomId,
-    host,
+    room,
     connected,
     stage,
     control: roomSession.control,
-    beforeCommit,
-    quality,
     volume: filmVolume,
     onError: error,
   });
-  const media = usePlaybackConnection(
+  const playback = useTogetherPlayback(
     room,
     connected,
-    movie,
-    film.source,
-    error,
-    roomSession.socket,
-    roomSession.accept,
+    film,
+    roomSession.clockOffset,
     roomSession.control,
-    quality,
+    roomSession.report,
   );
-  resetMedia.current = media.disconnect;
   const control = useCallback(
     async (value: PlaybackCommand) => {
       const source = film.source.current,
@@ -192,80 +164,15 @@ export default function App() {
       ?.setAttribute('content', roomId ? '#181a1b' : '#f7f6f2');
   }, [roomId, colorScheme, setColorScheme]);
   useEffect(() => {
-    const source = film.source.current?.element as
-      (HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> }) | undefined;
-    if (source?.setSinkId) void source.setSinkId(outputId || 'default').catch(error);
-  }, [outputId, film.info, film.source, error]);
-  useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
   useEffect(() => {
-    if (ready)
-      void api<{ media: boolean; status: string }>('/api/health')
-        .then(setHealth)
-        .catch(() => {});
-  }, [ready, path]);
-  useEffect(() => {
-    if (!ready || !roomId || health?.media !== false) return;
-    let cancelled = false;
-    const timer = setInterval(() => {
-      void api<{ media: boolean; status: string }>('/api/health')
-        .then((value) => {
-          if (!cancelled) setHealth(value);
-        })
-        .catch(() => {});
-    }, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [ready, roomId, health?.media]);
-  useEffect(() => {
     try {
       localStorage.setItem('interlude-film-volume', String(filmVolume));
-      localStorage.setItem('interlude-voice-volume', String(voiceVolume));
-      localStorage.setItem('interlude-microphone', deviceId);
-      localStorage.setItem('interlude-output', outputId);
     } catch {}
-    if (movie.current) movie.current.volume = filmVolume;
-    media.transport.current?.setVoiceVolume(voiceVolume);
-    if ('setSinkId' in HTMLMediaElement.prototype)
-      void media.transport.current?.outputDevice(outputId || 'default').catch(error);
-  }, [filmVolume, voiceVolume, deviceId, outputId, media.state, media.transport]);
-  useEffect(() => {
-    const playback = room?.playback,
-      source = film.source.current;
-    if (!host || !source || !playback || film.preflight.phase === 'committing') return;
-    if (Math.abs(source.element.currentTime - playback.position) > 1.5)
-      source.seek(playback.position);
-    if (!connected || playback.paused || !playback.available) source.pause();
-    else void source.play().catch(error);
-  }, [
-    room?.playback.updatedAt,
-    room?.mediaEpoch,
-    host,
-    connected,
-    film.info,
-    film.preflight.phase,
-    film.source,
-    error,
-  ]);
-  useEffect(() => {
-    if (
-      host &&
-      connected &&
-      !film.source.current &&
-      film.preflight.phase === 'idle' &&
-      room?.playback.available &&
-      !room.playback.website
-    )
-      run(control({ kind: 'stop' }));
-  }, [host, connected, room?.playback.available, film.preflight.phase, film.source, run, control]);
-  useEffect(() => {
-    if (room?.closed || room?.playback.website) film.clear();
-  }, [room?.closed, room?.playback.website?.url, film.clear]);
+  }, [filmVolume]);
   useEffect(() => {
     if (!room || room.closed || room.selfStatus !== 'approved') {
       setSettingsOpen(false);
@@ -273,16 +180,6 @@ export default function App() {
       setEndOpen(false);
     }
   }, [room?.id, room?.closed, room?.selfStatus]);
-  useEffect(() => {
-    if (
-      host &&
-      connected &&
-      film.source.current &&
-      room?.playback.paused === false &&
-      ['disconnected', 'reconnecting', 'signalReconnecting'].includes(media.state)
-    )
-      run(control({ kind: 'pause' }));
-  }, [media.state, host, connected, room?.playback.paused, film.source, control, run]);
   useEffect(() => {
     const timer = setInterval(() => {
       const view = roomSession.current.current;
@@ -381,59 +278,7 @@ export default function App() {
     setToast('新邀请已复制 · 旧邀请失效，2 小时有效');
   }
   async function startWatching() {
-    if (!connected) throw new Error('请等待房间连接恢复');
-    if (host && film.resume !== undefined) throw new Error('请先确认从哪里继续播放');
-    setFailure('');
-    const view = roomSession.current.current,
-      source = film.source.current;
-    const valid = () => {
-      const next = roomSession.current.current;
-      if (
-        !view ||
-        location.pathname !== `/room/${view.id}` ||
-        next?.id !== view.id ||
-        next.hostId !== view.hostId ||
-        next.transportEpoch !== view.transportEpoch ||
-        film.source.current !== source
-      )
-        throw new Error('影片或房间已变化，请重新开始');
-    };
-    const migrated = () => {
-      const next = roomSession.current.current;
-      return (
-        !!view &&
-        next?.id === view.id &&
-        next.hostId === view.hostId &&
-        next.mediaEpoch === view.mediaEpoch &&
-        next.selfStatus === 'approved' &&
-        next.delivery.mode !== view.delivery.mode &&
-        film.source.current === source
-      );
-    };
-    try {
-      const transport = await media.ensure();
-      valid();
-      transport.setVoiceVolume(voiceVolume);
-      if (outputId && 'setSinkId' in HTMLMediaElement.prototype)
-        await transport.outputDevice(outputId);
-      await transport.resumeAudio();
-      valid();
-      if (host && source) {
-        try {
-          const stream = await source.stream(quality);
-          valid();
-          await transport.publish(stream, quality);
-          await control({ kind: 'play' });
-        } catch (e) {
-          if (migrated()) return;
-          source.pause();
-          await media.disconnect();
-          throw e;
-        }
-      }
-    } catch (e) {
-      if (!migrated()) throw e;
-    }
+    await playback.start();
   }
   async function leave() {
     try {
@@ -450,8 +295,6 @@ export default function App() {
       room={room}
       connected={connected}
       host={host}
-      mic={media.mic}
-      voices={media.voiceMembers}
       tab={side}
       onTab={setSide}
       onClose={() => (mobile ? setMobileSidebar(false) : setSidebar(false))}
@@ -466,7 +309,7 @@ export default function App() {
       <header className="topbar">
         <button
           className="logo-button"
-          aria-label="幕间首页"
+          aria-label="一起看首页"
           onClick={() => (roomId ? run(leave()) : navigate('/'))}
         >
           <Logo />
@@ -628,7 +471,7 @@ export default function App() {
             )}
           </section>
           <footer className="home-footer">
-            <span>本地选片，朋友直接观看。</span>
+            <span>各自准备影片，一起同步观看。</span>
             <nav aria-label="帮助与开源">
               <a
                 href="https://github.com/askandtell/interlude/blob/main/docs/GETTING_STARTED.md"
@@ -724,47 +567,9 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {room.mediaDegraded && (
-                <Alert color="yellow" title="房间安全连接正在恢复">
-                  请稍后重试连接，暂时无法开始新的放映。
-                </Alert>
-              )}
               <div className="connection-notice" role="status">
-                {room.delivery.mode === 'direct' ? '优先直连 · 最多 3 人' : '云端转发'}
-                {room.delivery.reason === 'direct-failed' && ' · 直连未成功，已切换'}
-                {room.delivery.reason === 'size' && ' · 多人放映'}
-                {host && room.delivery.mode === 'direct' && (
-                  <button
-                    className="text-button"
-                    onClick={() => run(control({ kind: 'use-relay' }))}
-                  >
-                    改用转发
-                  </button>
-                )}
-                {host && room.delivery.mode === 'relay' && room.playback.paused && (
-                  <button
-                    className="text-button"
-                    onClick={() => run(control({ kind: 'retry-direct' }))}
-                  >
-                    重试直连
-                  </button>
-                )}
+                各自播放 · 只同步进度 · 不传输影片或语音
               </div>
-              {health && !health.media && room.delivery.mode === 'relay' && (
-                <Alert color="yellow" title="媒体服务暂不可用">
-                  <div className="health-notice">
-                    <span>视频与语音暂时无法连接，请联系房间管理员或稍后重试。</span>
-                    <button
-                      className="text-button"
-                      onClick={() =>
-                        run(api<{ media: boolean; status: string }>('/api/health').then(setHealth))
-                      }
-                    >
-                      重新检查
-                    </button>
-                  </div>
-                </Alert>
-              )}
               {room.playback.website && host && film.preflight.phase !== 'idle' && (
                 <Alert
                   color={film.preflight.error ? 'red' : 'gray'}
@@ -790,8 +595,6 @@ export default function App() {
                       room={room}
                       connected={connected}
                       control={control}
-                      mic={media.mic}
-                      onMic={() => media.microphone(!media.mic, deviceId)}
                       onChat={showChat}
                       run={run}
                       change={() => setWebsiteOpen(true)}
@@ -817,9 +620,8 @@ export default function App() {
                     host={host}
                     connected={connected}
                     film={film}
-                    media={media}
+                    playback={playback}
                     stage={stage}
-                    movie={movie}
                     time={time}
                     volume={filmVolume}
                     onVolume={setFilmVolume}
@@ -827,7 +629,6 @@ export default function App() {
                     onSelect={() => fileInput.current?.click()}
                     onSubtitle={() => subtitleInput.current?.click()}
                     onStart={startWatching}
-                    onMic={() => media.microphone(!media.mic, deviceId)}
                     onChat={showChat}
                     run={run}
                     onTime={setTime}
@@ -895,7 +696,6 @@ export default function App() {
                 const selected = websiteSource(websiteUrl);
                 await roomSession.control({ kind: 'website', url: selected.url });
                 film.clear();
-                await media.disconnect();
                 setWebsiteOpen(false);
                 setWebsiteUrl('');
               })(),
@@ -903,7 +703,7 @@ export default function App() {
           }}
         >
           <p>
-            哔哩哔哩、优酷、爱奇艺、腾讯视频。每个人在官方网页使用自己的账号观看，幕间同步时间。
+            哔哩哔哩、优酷、爱奇艺、腾讯视频。每个人在官方网页使用自己的账号观看，一起看同步时间。
           </p>
           <TextInput
             label="官方视频完整链接"
@@ -971,65 +771,20 @@ export default function App() {
         size="md"
       >
         <div className="settings-content">
-          {settingsOpen && (
-            <>
-              <h3>声音与设备</h3>
-              <label className="field-label" htmlFor="film-volume-setting">
-                电影音量
-              </label>
-              <Slider
-                id="film-volume-setting"
-                thumbLabel="设置电影音量"
-                aria-label="设置电影音量"
-                value={filmVolume * 100}
-                onChange={(v) => setFilmVolume(v / 100)}
-                mb="lg"
-              />
-              <DevicePanel
-                outputId={outputId}
-                onOutput={(id) =>
-                  run(
-                    (async () => {
-                      const v = movie.current as HTMLVideoElement & {
-                        setSinkId?: (id: string) => Promise<void>;
-                      };
-                      if (v?.setSinkId) await v.setSinkId(id || 'default');
-                      if (media.transport.current) await media.transport.current.outputDevice(id);
-                      setOutputId(id);
-                    })(),
-                  )
-                }
-                deviceId={deviceId}
-                onDevice={(id) => {
-                  if (media.mic) run(media.microphone(false).then(() => setDeviceId(id)));
-                  else setDeviceId(id);
-                }}
-                voiceVolume={voiceVolume}
-                onVolume={setVoiceVolume}
-                onError={error}
-              />
-            </>
-          )}
+          <h3>播放设置</h3>
+          <Slider
+            aria-label="设置电影音量"
+            value={filmVolume * 100}
+            onChange={(v) => setFilmVolume(v / 100)}
+          />
+          <Switch
+            mt="lg"
+            label="兼容转换（下次选片生效）"
+            checked={convert}
+            onChange={(e) => setConvert(e.currentTarget.checked)}
+          />
           {host && (
             <>
-              <h3>放映设置</h3>
-              <Select
-                label="共享画质（下次选片生效）"
-                data={[
-                  { value: '720', label: '720p · 流畅优先' },
-                  { value: '1080', label: '1080p · 更清晰' },
-                ]}
-                value={String(quality)}
-                onChange={(v) => setQuality(Number(v) as 720 | 1080)}
-              />
-              <Switch
-                mt="lg"
-                label="兼容转换（下次选片生效）"
-                description="浏览器无法直接播放时，可在本机重新封装或转换。"
-                checked={convert}
-                onChange={(e) => setConvert(e.currentTarget.checked)}
-              />
-              <h3>房间管理</h3>
               <Button
                 variant="default"
                 fullWidth
@@ -1082,7 +837,7 @@ export default function App() {
             </>
           )}
           <p className="privacy-note">
-            影片和语音经媒体服务器加密传输，不保存整部影片，不宣称端到端加密。
+            影片与字幕只在各自设备播放，房间服务仅处理同步状态与文字聊天。
           </p>
         </div>
       </Modal>

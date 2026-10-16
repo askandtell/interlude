@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
-import type { PlaybackCommand, RoomView } from '../../shared/protocol';
+import type { PlaybackCommand, RoomView, ViewingState } from '../../shared/protocol';
 import { api, command, connectRoom, emit } from '../api';
 
 export function useRoomSession(
@@ -11,6 +11,7 @@ export function useRoomSession(
   const [room, setRoom] = useState<RoomView>();
   const [joinAttempt, setJoinAttempt] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [clockOffset, setClockOffset] = useState(0);
   const socket = useRef<Socket>();
   const current = useRef<RoomView>();
   const desiredRoom = useRef(roomId);
@@ -49,6 +50,32 @@ export function useRoomSession(
     const client = connectRoom(roomId);
     let active = true;
     let refreshing = false;
+    const samples: { rtt: number; offset: number }[] = [];
+    const calibrate = async () => {
+      for (let n = 0; n < 5 && active && client.connected; n++) {
+        const sent = Date.now();
+        try {
+          const result = await emit<{ serverNow: number }>(client, 'clock', {}),
+            received = Date.now();
+          samples.push({ rtt: received - sent, offset: result.serverNow - (sent + received) / 2 });
+          samples.sort((a, b) => a.rtt - b.rtt);
+          samples.splice(5);
+          if (active)
+            setClockOffset(
+              samples.slice(0, 3).reduce((sum, v) => sum + v.offset, 0) /
+                Math.min(3, samples.length),
+            );
+        } catch {
+          break;
+        }
+      }
+    };
+    client.on('connect', () => {
+      void calibrate();
+    });
+    const clockTimer = setInterval(() => {
+      void calibrate();
+    }, 30000);
     socket.current = client;
     const refresh = async () => {
       if (refreshing) return;
@@ -90,6 +117,7 @@ export function useRoomSession(
     }, 15000);
     return () => {
       active = false;
+      clearInterval(clockTimer);
       clearInterval(tick);
       client.disconnect();
       if (socket.current === client) socket.current = undefined;
@@ -143,5 +171,32 @@ export function useRoomSession(
         .catch(onError);
     } else socket.current?.connect();
   }, [accept, onError]);
-  return { room, current, socket, accept, joinAttempt, connected, control, message, manage, retry };
+  const report = useCallback(
+    async (state: ViewingState, duration?: number) => {
+      const view = current.current;
+      if (!view) return;
+      accept(
+        await emit<RoomView>(socket.current, 'viewing', {
+          epoch: view.mediaEpoch,
+          state,
+          ...(duration === undefined ? {} : { duration }),
+        }),
+      );
+    },
+    [accept],
+  );
+  return {
+    room,
+    current,
+    socket,
+    accept,
+    joinAttempt,
+    connected,
+    control,
+    message,
+    manage,
+    retry,
+    clockOffset,
+    report,
+  };
 }

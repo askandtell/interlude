@@ -32,7 +32,14 @@ function valid(s) {
   }
 }
 async function handle(m, sender) {
-  const data = await chrome.storage.session.get(['pair', 'snapshot', 'received', 'status']);
+  const data = await chrome.storage.session.get([
+    'pair',
+    'snapshot',
+    'received',
+    'status',
+    'playerSeen',
+    'confirmed',
+  ]);
   const { pair, snapshot, received } = data;
   if (pair && m.type === 'snapshot' && sender.tab?.id === pair?.roomTab) {
     const next = m.snapshot;
@@ -52,14 +59,22 @@ async function handle(m, sender) {
   }
   if (pair && m.type === 'poll' && sender.tab?.id === pair?.videoTab) {
     if (typeof m.status === 'string')
-      await chrome.storage.session.set({ status: m.status.slice(0, 160) });
+      await chrome.storage.session.set({
+        status: m.status.slice(0, 160),
+        playerSeen: Date.now(),
+        confirmed: m.enabled === true,
+      });
     return {
       snapshot: snapshot && Date.now() - received < 5000 ? snapshot : null,
       age: Date.now() - received,
     };
   }
   if (pair && m.type === 'status' && sender.tab?.id === pair?.roomTab)
-    return { text: data.status || '扩展已连接 · 等待在官方网页开启同步' };
+    return {
+      text: data.status || '扩展已连接 · 等待在官方网页开启同步',
+      playerConnected: !!pair.videoTab && Date.now() - (data.playerSeen || 0) < 5000,
+      confirmed: data.confirmed === true && Date.now() - (data.playerSeen || 0) < 5000,
+    };
   // Only the extension popup can open or unpair tabs.
   if (sender.tab || !sender.url?.startsWith(chrome.runtime.getURL('popup.html'))) return;
   if (m.type === 'disconnect') {
@@ -93,7 +108,19 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
 });
 async function injectPlayer(id) {
   try {
-    await chrome.scripting.executeScript({ target: { tabId: id }, files: ['player.js'] });
+    const tab = await chrome.tabs.get(id),
+      host = new URL(tab.url).hostname;
+    const adapters = {
+      'www.bilibili.com': 'bilibili',
+      'v.youku.com': 'youku',
+      'www.iqiyi.com': 'iqiyi',
+      'v.qq.com': 'tencent',
+    };
+    if (!adapters[host]) return;
+    await chrome.scripting.executeScript({
+      target: { tabId: id },
+      files: ['adapters/' + adapters[host] + '.js', 'player.js'],
+    });
   } catch {
     await chrome.storage.session.set({
       status: '无法连接官方播放器。请检查站点授权，或手动对齐。',

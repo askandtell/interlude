@@ -5,6 +5,3 @@ cinema.example.com {
         output discard
     }
 }
-rtc.example.com {
-    reverse_proxy 127.0.0.1:7880
-}

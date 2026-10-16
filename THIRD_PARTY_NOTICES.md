@@ -1,10 +1,10 @@
 # Attribution and sources
 
-Interlude is derived from **WatchParty**, copyright (c) 2020 Howard Chung, under the MIT license. The original LICENSE, attribution and Git history are retained. See [WatchParty](https://github.com/howardchung/watchparty) and the [source version used](https://github.com/howardchung/watchparty/tree/2d366c1006b7b86228bcd7bb6debc111d857f51e).
+一起看 is derived from **WatchParty**, copyright (c) 2020 Howard Chung, under the MIT license. The original LICENSE, attribution and Git history are retained. See [WatchParty](https://github.com/howardchung/watchparty) and the [source version used](https://github.com/howardchung/watchparty/tree/2d366c1006b7b86228bcd7bb6debc111d857f51e).
 
 `src/media/ClientTranscoder.ts` retains WatchParty's local WebCodecs/Mediabunny conversion implementation, relocated from `src/utils/clientTranscode.ts`. Room/security/UI code is rewritten for private rooms. Upstream cloud services, billing, virtual browsing, external default TURN endpoints, magnet links and Firebase configuration are removed from the current working tree; they remain visible only in historical upstream commits.
 
-Runtime components include React (MIT), Mantine (MIT), Socket.IO (MIT), Express (MIT), Redis client ioredis (MIT), Zod (MIT), LiveKit SDKs/server (Apache-2.0), Mediabunny (MPL-2.0) and its AC-3 package (see its installed license), Tabler icons (MIT), and Helmet (MIT). Consult the exact installed package LICENSE files and lockfile before redistribution; this summary is not a substitute for third-party notices or patent review. FFmpeg is used only by optional test-fixture scripts and is not bundled into the application.
+Runtime components include React (MIT), Mantine (MIT), Socket.IO (MIT), Express (MIT), Redis client ioredis (MIT), Zod (MIT), Mediabunny (MPL-2.0) and its AC-3 package (see its installed license), Tabler icons (MIT), and Helmet (MIT). Consult the exact installed package LICENSE files and lockfile before redistribution; this summary is not a substitute for third-party notices or patent review. FFmpeg is used only by optional test-fixture scripts and is not bundled into the application.
 
 Runtime package metadata is listed in `docs/DEPENDENCIES.json`; regenerate it with `node scripts/licenses.mjs` after dependency changes.
 

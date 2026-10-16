@@ -1,32 +1,28 @@
-# 幕间 · Interlude
+# 一起看
 
-和朋友一起看本地视频。房主选片，朋友通过邀请加入，边看边聊天。
+和朋友各自播放同一部影片，一起看、一起聊。
 
-[在线体验](https://interlude-eoqk.onrender.com) · [使用指南](docs/GETTING_STARTED.md) · [自行部署](docs/FREE_HOSTING.md) · [English](README.en.md)
+[打开一起看](https://interlude-eoqk.onrender.com) · [使用指南](docs/GETTING_STARTED.md) · [自行部署](docs/FREE_HOSTING.md) · [English](README.en.md)
 
 ![放映室](docs/design/implemented-room.png)
 
-## 能做什么
+## 怎么一起看
 
-- 最多 8 人，昵称加入，房主批准后才能观看。
-- 房主控制播放、暂停和跳转，朋友可以发送暂停请求。
-- 文字聊天、语音聊天，电影和语音分别调节音量。
-- 本地 SRT/VTT 字幕，支持字号和时间偏移。
-- 3 人以内优先直连，直连失败或人数增加时使用 LiveKit 转发。
-- 电脑浏览器放映，观看界面适配窄屏；支持自行部署。
+- **本地影片**：房主选片，朋友各自选择同一剪辑版本的文件。每个人在自己的设备播放，一起看同步进度、暂停和跳转，不传送影片。
+- **视频网站**：每个人在官方网站观看，桌面扩展同步播放。支持四个平台的链接格式，播放器适配仍处于实验阶段。
+- 私密邀请、房主批准、最多八人，支持文字聊天和暂停请求。
+- 每个人可以单独调整音量、载入 SRT/VTT 字幕、设置字号与时间偏移。
 
-原视频文件不会上传保存。房主需要保持页面打开，刷新后要重新选择文件。放映端请使用桌面 Chrome 或 Edge。
+房主不能把自己的一份影片直接分享给全房间。一起看不提供影视资源、语音通话或云端视频转发。网站模式需要每个人自己的观看权限。
 
-## 开始观看
+## 开始使用
 
-1. 打开体验站，创建房间并选择视频。
-2. 点击“邀请朋友”，发送复制出来的完整链接。
-3. 收到申请时点击“查看申请”，批准朋友入座。
-4. 房主开始放映，朋友点击“开始观看”。麦克风默认关闭。
+1. 打开网址，创建房间，选择本地影片或网站链接。
+2. 通过“邀请朋友”发送完整链接，收到申请后批准入座。
+3. 本地模式下，朋友选择自己的文件并确认是同一剪辑版本，点击“加入一起看”。
+4. 房主点击“开始放映”。网站模式的扩展安装及操作见[使用说明](docs/WEBSITE_WATCH.md)。
 
-朋友不需要注册 GitHub 或云服务账号。邀请轮换后，旧链接会失效。
-
-体验站使用免费托管，闲置后首次打开可能需要等待约一分钟，也可能因额度耗尽暂停。需要长期使用时，建议[部署自己的实例](docs/FREE_HOSTING.md)。
+普通用户不需要注册云服务或填写密钥。体验站使用免费基础托管，可能休眠、限流或暂停；不保证所有国内网络都稳定可达。
 
 ## 本机运行
 
@@ -39,47 +35,28 @@ npm ci
 node scripts/setup-dev.mjs
 ```
 
-在两个终端中分别运行：
+在两个终端分别运行 `npm run dev` 和 `npm run ui`，访问 http://127.0.0.1:15173 。本地开发可使用内存存储；重启后房间记录会丢失。生产部署使用 Redis，不需要音视频服务账号。
 
-```sh
-npm run dev
-```
+## 部署与开发
 
-```sh
-npm run ui
-```
-
-访问 **http://127.0.0.1:15173**。本机小房间可以直接试用 P2P；需要转发时，另外启动 LiveKit，步骤见[部署文档](docs/DEPLOYMENT.md)。开发环境未配置 Redis 时，重启会丢失房间记录。
-
-## 自行部署
-
-仓库提供 Docker Compose 和 Render Blueprint。免费托管路线使用 Render 二级域名，无需购买域名或 VPS。部署者需要填写自己的 LiveKit 配置，密钥只放在服务端环境变量中。
-
-- [入门与配置](docs/GETTING_STARTED.md)
-- [免费托管步骤和限制](docs/FREE_HOSTING.md)
-- [Docker 与自托管](docs/DEPLOYMENT.md)
-- [直连、转发与隐私](docs/HYBRID_MEDIA.md)
-
-公开源码不附带维护者的云服务额度。服务商的免费政策和网络可达性，以自己的账号与实际测试为准。
-
-## 开发与测试
+- [Render 免费托管](docs/FREE_HOSTING.md)：网站和房间数据仍使用部署者的基础托管资源，没有视频或语音转发额度。
+- [Docker 与其他部署方式](docs/DEPLOYMENT.md)
+- [参与开发](CONTRIBUTING.md) · [同步设计](docs/SYNCHRONIZATION.md) · [安全说明](docs/SECURITY.md)
+- [测试结果与未覆盖环境](docs/TEST_REPORT.md)
 
 ```sh
 npm run check
 npx playwright install chromium
+npm run test:media # 需要 FFmpeg，生成测试影片
 npm run test:e2e
 ```
 
-安装 FFmpeg 后，`npm run test:media` 可以生成测试片和麦克风测试音。启动本机 LiveKit，再设置 `MEDIA_E2E=1`，可以运行转发音视频测试。公网测试使用 `PUBLIC_E2E_URL` 和 `npm run test:public`，会创建临时房间并消耗少量媒体额度。
-
-[参与开发](CONTRIBUTING.md) · [测试结果](docs/TEST_REPORT.md) · [架构](docs/ARCHITECTURE.md) · [安全说明](docs/SECURITY.md)
-
 ## 当前限制
 
-版本仍处于早期。已测试桌面浏览器和公开 HTTPS 实例的直连、云端转发；不同运营商、真实手机、TURN-only 网络和两小时连续播放尚未完整测试。观看者不能单独拖动同一路实时视频的进度。
+各自的文件需要是同一剪辑版本。时长检查不能证明内容一致；超过一秒的时长差会阻止加入。刷新后需要重新选择文件，断线恢复后需要主动继续观看。
 
-[视频网站同步扩展](docs/WEBSITE_WATCH.md)为实验功能，各自需要在官网拥有正常观看权限。Jellyfin、原生客户端和个人独立字幕暂未实现。
+真实手机、跨运营商网络和两小时连续播放仍需更多测试。网站的登录、广告、会员和封闭播放器会影响适配，尚未完成四个平台的完整实测。
 
 ## 来源与许可
 
-项目基于 [WatchParty](https://github.com/howardchung/watchparty)，使用 MIT 许可证并保留上游历史与署名。复用了其浏览器本地转换模块，房间权限、媒体传输与界面在此基础上开发。详见 [LICENSE](LICENSE) 和[第三方声明](THIRD_PARTY_NOTICES.md)。
+基于 [WatchParty](https://github.com/howardchung/watchparty)，保留 MIT 许可证、上游历史和署名，复用其浏览器本地兼容转换模块。详见 [LICENSE](LICENSE) 和[第三方声明](THIRD_PARTY_NOTICES.md)。

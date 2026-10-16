@@ -1,11 +1,6 @@
 /**
- * Client-side transcoding for file sharing, built on WebCodecs.
- *
- * The host's browser demuxes the chosen file (MP4, MKV, WebM, MOV, ...), decodes and re-encodes any track the
- * browser can't natively play (e.g. HEVC video, AC-3/DTS-less audio, 10-bit H.264), and streams the result as
- * fragmented MP4 into a MediaSource attached to the host's <video> element. The existing fileshare pipeline
- * (video.captureStream() -> WebRTC, optionally via mediasoup) then distributes it exactly as it would a plain file,
- * so no server-side conversion is needed.
+ * Local compatibility conversion using WebCodecs and MediaSource.
+ * Converted bytes remain in this browser; the application sends playback state only.
  *
  * Demuxing/muxing and the WebCodecs plumbing are handled by mediabunny; it is imported lazily so none of it is
  * downloaded unless the user actually asks for conversion.
@@ -530,7 +525,7 @@ export class ClientTranscoder {
           forceTranscode: true,
           // Downscale only if necessary (the other dimension is derived from the aspect ratio)
           ...(tooTall ? { height } : {}),
-          // WebRTC will re-encode this again for viewers, so there's no point in a high-quality intermediate
+          // Keep local compatibility conversion affordable on ordinary devices.
           quality: mb.QUALITY_MEDIUM,
           // Short GOPs keep seeks cheap, since we restart the conversion at the seek target
           keyFrameInterval: 2,
@@ -563,7 +558,7 @@ export class ClientTranscoder {
         return {
           codec,
           forceTranscode: true,
-          // Viewers get stereo over WebRTC anyway
+          // Stereo output provides a predictable browser compatibility target.
           numberOfChannels: 2,
           // Opus only runs at 48 kHz, and Chrome's MP4 parser rejects Opus whose declared input sample rate
           // differs from the 48 kHz sample entry (i.e. any 44.1 kHz source), so resample up front

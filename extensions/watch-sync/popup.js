@@ -13,7 +13,7 @@ document.querySelector('#connect').onclick = async () => {
         (u.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(u.hostname))
       )
     )
-      throw new Error('请先切换到幕间房间页，再连接。');
+      throw new Error('请先切换到一起看房间页，再连接。');
     await chrome.runtime.sendMessage({ type: 'disconnect' });
     await chrome.storage.session.set({
       pair: { roomTab: tab.id, roomId: u.pathname.split('/')[2] },

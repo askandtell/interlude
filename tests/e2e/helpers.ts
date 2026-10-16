@@ -16,11 +16,6 @@ export async function createHost(page: Page, delivery: 'direct' | 'relay' = 'rel
   ).toBe(201);
   const data = await response.json();
   await expect(page.getByRole('button', { name: '选择本地影片', exact: true })).toBeEnabled();
-  // Existing media regressions explicitly exercise the SFU; hybrid tests opt into the default path.
-  if (delivery === 'relay') {
-    await page.getByRole('button', { name: '改用转发', exact: true }).click();
-    await expect(page.locator('.connection-notice')).toContainText('云端转发');
-  }
   return data as { room: { id: string }; invite: string };
 }
 export async function admit(
@@ -29,7 +24,6 @@ export async function admit(
   data: { room: { id: string }; invite: string },
 ) {
   const context = await browser.newContext({
-      permissions: ['microphone'],
       viewport: { width: 1280, height: 900 },
     }),
     guest = await context.newPage();
@@ -39,6 +33,8 @@ export async function admit(
   await expect(guest.getByRole('heading', { name: '等待房主批准' })).toBeVisible();
   await host.getByRole('button', { name: /座位/ }).click();
   await host.getByRole('button', { name: '批准 阿远' }).click();
-  await expect(guest.getByRole('button', { name: '开始观看', exact: true }).first()).toBeEnabled();
+  await expect(
+    guest.getByRole('button', { name: '选择自己的影片', exact: true }).first(),
+  ).toBeVisible();
   return { guest, context };
 }

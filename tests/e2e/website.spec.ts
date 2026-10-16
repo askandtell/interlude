@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createHost, admit } from './helpers';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 
 test('website mode shares only canonical watch URL and authoritative time with admitted friends', async ({
   page,
@@ -58,7 +58,7 @@ test('website mode shares only canonical watch URL and authoritative time with a
   expect(await guest.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await guest.screenshot({ path: 'artifacts/website-room-mobile.png', fullPage: true });
   await context.close();
-  if (process.env.MEDIA_E2E) await checkLocalReplacement(page);
+  if (existsSync('.cache/fixtures/sample.mp4')) await checkLocalReplacement(page);
 });
 
 async function checkLocalReplacement(page: Page) {
@@ -90,7 +90,7 @@ async function checkLocalReplacement(page: Page) {
 test('extension player applies real video play/pause/seek and pauses on stale room or changed source', async ({
   page,
 }) => {
-  test.skip(!process.env.MEDIA_E2E, 'Requires generated local media fixtures');
+  test.skip(!existsSync('.cache/fixtures/sample.mp4'), 'Requires generated local media fixtures');
   // A controlled fixture on an intercepted origin, not a claim of real Bilibili validation.
   await page.route('https://www.bilibili.com/**', (route) =>
     route.fulfill({
@@ -139,7 +139,7 @@ test('extension player applies real video play/pause/seek and pauses on stale ro
     (window as any).__snapshot = null;
   });
   await expect(
-    page.getByText('房间连接中断或同步已断开，影片已暂停。请回到幕间检查。'),
+    page.getByText('房间连接中断或同步已断开，影片已暂停。请回到一起看检查。'),
   ).toBeVisible();
   await page.evaluate(() => {
     (window as any).__snapshot = {

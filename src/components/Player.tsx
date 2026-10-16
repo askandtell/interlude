@@ -4,8 +4,6 @@ import {
   IconPlayerPlayFilled,
   IconPlayerPauseFilled,
   IconVolume,
-  IconMicrophone,
-  IconMicrophoneOff,
   IconMessageCircle,
   IconMaximize,
   IconPhotoVideo,
@@ -17,19 +15,18 @@ import {
 } from '@tabler/icons-react';
 import type { PlaybackCommand, RoomView } from '../../shared/protocol';
 import type { useLocalFilm } from '../hooks/useLocalFilm';
-import type { usePlaybackConnection } from '../hooks/usePlaybackConnection';
+import type { useTogetherPlayback } from '../hooks/useTogetherPlayback';
 import { clock } from '../ui';
 
 type Film = ReturnType<typeof useLocalFilm>;
-type Connection = ReturnType<typeof usePlaybackConnection>;
+type Connection = ReturnType<typeof useTogetherPlayback>;
 interface Props {
   room: RoomView;
   host: boolean;
   connected: boolean;
   film: Film;
-  media: Connection;
+  playback: Connection;
   stage: RefObject<HTMLDivElement>;
-  movie: RefObject<HTMLVideoElement>;
   time: number;
   volume: number;
   onVolume: (n: number) => void;
@@ -37,13 +34,12 @@ interface Props {
   onSelect: () => void;
   onSubtitle: () => void;
   onStart: () => Promise<void>;
-  onMic: () => Promise<void>;
   onChat: () => void;
   run: (p: Promise<unknown>) => void;
   onTime: (n: number) => void;
 }
 export function Player(p: Props) {
-  const { room, host, film, media, connected } = p;
+  const { room, host, film, playback, connected } = p;
   const shell = useRef<HTMLDivElement>(null),
     seekTimer = useRef<ReturnType<typeof setTimeout>>();
   const seekVersion = useRef(0);
@@ -63,7 +59,7 @@ export function Player(p: Props) {
       });
   }, [film.preflight.phase]);
   const preparing = ['checking', 'committing'].includes(film.preflight.phase),
-    isConnected = media.state === 'connected';
+    isConnected = playback.active;
   const busy = preparing || starting;
   useEffect(
     () => () => {
@@ -98,30 +94,26 @@ export function Player(p: Props) {
       setStarting(false);
     }
   }
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => setConfirmed(false), [film.info, room.mediaEpoch]);
   const playLabel = host
     ? isConnected && !room.playback.paused
       ? '暂停放映'
       : '开始放映'
-    : '开始观看';
+    : '加入一起看';
   const stateLabel = !connected
     ? '控制连接中断'
-    : media.state === 'autoplay-blocked'
-      ? '需要点击恢复播放'
-      : !isConnected
-        ? ['connecting', 'reconnecting', 'signalReconnecting', 'migrating'].includes(media.state)
-          ? '正在连接媒体'
-          : '媒体未连接'
-        : host
-          ? film.info
-            ? room.playback.paused
-              ? '影片已暂停'
-              : '正在放映'
-            : '等待选片'
-          : media.hasPicture
-            ? room.playback.paused
-              ? '影片已暂停'
-              : '正在观看'
-            : '已连接 · 等待画面';
+    : playback.blocked
+      ? '点击继续观看'
+      : !film.info
+        ? '请先选择自己的影片'
+        : !isConnected
+          ? '已准备 · 等待加入'
+          : room.playback.paused
+            ? '影片已暂停'
+            : host
+              ? '正在放映'
+              : '正在观看';
   return (
     <section className="player-column">
       <div
@@ -132,77 +124,40 @@ export function Player(p: Props) {
         onFocusCapture={reveal}
       >
         <div
-          className={`screen ${host && film.info ? 'has-source' : ''}`}
+          className={`screen ${film.info ? 'has-source' : ''}`}
           ref={p.stage}
           onDragOver={(e) => {
-            if (host) {
+            if (host || room.playback.kind === 'local') {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'copy';
             }
           }}
           onDrop={(e) => {
             e.preventDefault();
-            if (host && !busy) p.run(film.select(e.dataTransfer.files[0]));
+            if ((host || room.playback.kind === 'local') && !busy)
+              p.run(film.select(e.dataTransfer.files[0]));
           }}
         >
-          <video
-            ref={p.movie}
-            playsInline
-            autoPlay
-            className="remote-movie"
-            aria-label="朋友分享的影片"
-            style={{ visibility: host ? 'hidden' : 'visible' }}
-          />
-          {!film.info && host && !preparing && (
+          {!film.info && !preparing && (
             <div className="screen-empty">
               <div className="file-drop">
-                <IconFile size={38} stroke={1.25} />
-                <h2>选择本地影片</h2>
-                <p>或将影片文件拖到此处</p>
-                <button className="light-button" onClick={p.onSelect} disabled={!connected}>
-                  选择本地影片
-                </button>
-                <small>格式支持以实际检测为准</small>
-              </div>
-            </div>
-          )}
-          {!host && !media.hasPicture && (
-            <div className="screen-empty">
-              <div className="viewer-wait">
-                <IconPlayerPlayFilled size={28} />
-                <h2>{isConnected ? '等待放映者的画面' : '加入这场放映'}</h2>
+                <IconFile size={38} />
+                <h2>{host ? '选择本地影片' : '选择自己的影片'}</h2>
                 <p>
-                  {room.playback.title
-                    ? room.playback.title
-                    : room.hostState === 'online'
-                      ? '房主正在准备影片'
-                      : '等待房主重新连接'}
+                  {host
+                    ? '每个人使用自己的文件，一起看只同步播放。'
+                    : room.playback.kind === 'local'
+                      ? '请选择同一部、同一剪辑版本的影片。'
+                      : '等待房主选择影片。'}
                 </p>
-                {isConnected && (
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      p.run(
-                        (async () => {
-                          await media.disconnect();
-                          await p.onStart();
-                        })(),
-                      )
-                    }
-                    disabled={!connected || starting}
-                  >
-                    重试媒体连接
-                  </button>
-                )}
-                {!isConnected && (
-                  <button
-                    className="light-button"
-                    onClick={() => p.run(start())}
-                    disabled={!connected || starting}
-                  >
-                    开始观看
-                  </button>
-                )}
+                <button
+                  className="light-button"
+                  disabled={!connected || (!host && room.playback.kind !== 'local')}
+                  onClick={p.onSelect}
+                >
+                  {host ? '选择本地影片' : '选择自己的影片'}
+                </button>
+                <small>影片不会发送给其他成员</small>
               </div>
             </div>
           )}
@@ -220,19 +175,9 @@ export function Player(p: Props) {
               )}
             </div>
           )}
-          {media.state === 'autoplay-blocked' && (
-            <button
-              className="autoplay-prompt light-button"
-              onClick={() =>
-                p.run(
-                  (async () => {
-                    const t = await media.ensure();
-                    await t.resumeAudio();
-                  })(),
-                )
-              }
-            >
-              点击恢复声音与画面
+          {playback.blocked && (
+            <button className="autoplay-prompt light-button" onClick={() => p.run(p.onStart())}>
+              点击继续观看
             </button>
           )}
         </div>
@@ -287,7 +232,9 @@ export function Player(p: Props) {
                 disabled={
                   busy ||
                   !connected ||
-                  (host && (!film.info || film.resume !== undefined)) ||
+                  !film.info ||
+                  (host && film.resume !== undefined) ||
+                  (!host && !confirmed) ||
                   (!host && isConnected)
                 }
                 onClick={() => p.run(start())}
@@ -319,7 +266,7 @@ export function Player(p: Props) {
               </span>
             </div>
             <div>
-              {host && (
+              {(host || room.playback.kind === 'local') && (
                 <button
                   className="icon-button"
                   aria-label="更换影片"
@@ -351,88 +298,75 @@ export function Player(p: Props) {
                 <Popover.Dropdown>
                   <div className="subtitle-panel">
                     <h3>字幕设置</h3>
-                    {host ? (
-                      <>
-                        <p className="muted">字幕由放映者合成到画面，所有人同步看到。</p>
-                        {film.subtitleName ? (
-                          <>
-                            <div className="subtitle-file">
-                              <IconFile size={18} />
-                              <span>{film.subtitleName}</span>
-                              <button
-                                className="icon-button"
-                                aria-label="清除字幕"
-                                onClick={film.clearSubtitles}
-                              >
-                                <IconX size={17} />
-                              </button>
-                            </div>
-                            <label className="field-label">字幕大小</label>
-                            <SegmentedControl
-                              fullWidth
-                              value={String(film.settings.scale)}
-                              onChange={(value) =>
+                    <>
+                      <p className="muted">字幕只显示在你的设备上。</p>
+                      {film.subtitleName ? (
+                        <>
+                          <div className="subtitle-file">
+                            <IconFile size={18} />
+                            <span>{film.subtitleName}</span>
+                            <button
+                              className="icon-button"
+                              aria-label="清除字幕"
+                              onClick={film.clearSubtitles}
+                            >
+                              <IconX size={17} />
+                            </button>
+                          </div>
+                          <label className="field-label">字幕大小</label>
+                          <SegmentedControl
+                            fullWidth
+                            value={String(film.settings.scale)}
+                            onChange={(value) =>
+                              film.changeSettings({
+                                ...film.settings,
+                                scale: Number(value) as 80 | 100 | 120,
+                              })
+                            }
+                            data={['80', '100', '120'].map((v) => ({ value: v, label: `${v}%` }))}
+                          />
+                          <label className="field-label" htmlFor="subtitle-offset">
+                            时间偏移（秒）
+                          </label>
+                          <input
+                            id="subtitle-offset"
+                            className="number-input"
+                            aria-label="字幕时间偏移"
+                            type="number"
+                            min={-10}
+                            max={10}
+                            step={0.1}
+                            key={film.subtitleName}
+                            defaultValue={film.settings.offset}
+                            onBlur={(e) => {
+                              e.currentTarget.value = String(film.settings.offset);
+                            }}
+                            onChange={(e) => {
+                              const n = e.currentTarget.valueAsNumber;
+                              if (Number.isFinite(n))
                                 film.changeSettings({
                                   ...film.settings,
-                                  scale: Number(value) as 80 | 100 | 120,
-                                })
-                              }
-                              data={['80', '100', '120'].map((v) => ({ value: v, label: `${v}%` }))}
-                            />
-                            <label className="field-label" htmlFor="subtitle-offset">
-                              时间偏移（秒）
-                            </label>
-                            <input
-                              id="subtitle-offset"
-                              className="number-input"
-                              aria-label="字幕时间偏移"
-                              type="number"
-                              min={-10}
-                              max={10}
-                              step={0.1}
-                              key={film.subtitleName}
-                              defaultValue={film.settings.offset}
-                              onBlur={(e) => {
-                                e.currentTarget.value = String(film.settings.offset);
-                              }}
-                              onChange={(e) => {
-                                const n = e.currentTarget.valueAsNumber;
-                                if (Number.isFinite(n))
-                                  film.changeSettings({
-                                    ...film.settings,
-                                    offset: Math.max(-10, Math.min(10, n)),
-                                  });
-                              }}
-                            />
-                            <p className="muted">正数让字幕延后，负数让字幕提前。</p>
-                          </>
-                        ) : (
-                          <p>未载入字幕</p>
-                        )}
-                        <Button
-                          variant="default"
-                          fullWidth
-                          disabled={!film.info}
-                          onClick={p.onSubtitle}
-                        >
-                          {film.subtitleName ? '替换字幕文件' : '载入 SRT / VTT 字幕'}
-                        </Button>
-                      </>
-                    ) : (
-                      <p>字幕由放映者共享。如需调整，请在聊天中联系对方。</p>
-                    )}
+                                  offset: Math.max(-10, Math.min(10, n)),
+                                });
+                            }}
+                          />
+                          <p className="muted">正数让字幕延后，负数让字幕提前。</p>
+                        </>
+                      ) : (
+                        <p>未载入字幕</p>
+                      )}
+                      <Button
+                        variant="default"
+                        fullWidth
+                        disabled={!film.info}
+                        onClick={p.onSubtitle}
+                      >
+                        {film.subtitleName ? '替换字幕文件' : '载入 SRT / VTT 字幕'}
+                      </Button>
+                    </>
                   </div>
                 </Popover.Dropdown>
               </Popover>
-              <button
-                className={`icon-button ${media.mic ? 'active' : ''}`}
-                aria-label={media.mic ? '关闭麦克风' : '开启麦克风'}
-                title={media.mic ? '关闭麦克风' : '开启麦克风'}
-                disabled={!connected}
-                onClick={() => p.run(p.onMic())}
-              >
-                {media.mic ? <IconMicrophone size={20} /> : <IconMicrophoneOff size={20} />}
-              </button>
               {document.fullscreenEnabled && (
                 <button
                   className="icon-button"
@@ -461,7 +395,7 @@ export function Player(p: Props) {
           </div>
         </div>
       </div>
-      {host && ['error', 'compatibility'].includes(film.preflight.phase) && (
+      {['error', 'compatibility'].includes(film.preflight.phase) && (
         <div className="preflight-error" role="alert" ref={errorPanel}>
           <strong>
             {film.preflight.phase === 'compatibility'
@@ -519,9 +453,30 @@ export function Player(p: Props) {
         </div>
       )}
       <div className="below-screen">
-        <span>{host ? '放映期间请保持页面打开' : '进度由放映者控制 · 音量只对自己生效'}</span>
-        <span>影片不作为文件上传保存</span>
+        <span>
+          {host ? '保持页面打开；断线后需点击继续观看' : '进度由放映者控制 · 音量只对自己生效'}
+        </span>
+        <span>每个人都需要自己的影片文件</span>
       </div>
+      {film.info && !host && !isConnected && (
+        <div className="file-confirmation">
+          <label>
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => {
+                setConfirmed(e.target.checked);
+                playback.report(e.target.checked ? 'ready' : 'not-ready');
+              }}
+            />{' '}
+            这是同一部、同一剪辑版本的影片
+          </label>
+          <span>
+            时长差 {Math.abs(film.info.duration - room.playback.duration).toFixed(2)}{' '}
+            秒；相同时长不代表内容相同。
+          </span>
+        </div>
+      )}
     </section>
   );
 }

@@ -14,8 +14,6 @@ interface Props {
   room: RoomView;
   connected: boolean;
   host: boolean;
-  mic: boolean;
-  voices: Record<string, boolean>;
   tab: 'chat' | 'members';
   onTab: (tab: 'chat' | 'members') => void;
   onClose: () => void;
@@ -188,12 +186,20 @@ export function RoomSidebar(p: Props) {
                 </strong>
                 <small>
                   <i className={`status-dot ${m.online ? 'online' : ''}`} />
-                  {m.id === p.room.hostId ? '放映者' : m.online ? '在线' : '暂时离开'}
+                  {m.id === p.room.hostId ? '房主 · ' : ''}
+                  {!m.online
+                    ? '暂时离开'
+                    : p.room.playback.kind !== 'local'
+                      ? '在线'
+                      : {
+                          'not-ready': '未准备',
+                          ready: '已准备',
+                          watching: '正在观看',
+                          blocked: '播放受阻',
+                          buffering: '缓冲中',
+                        }[m.viewing]}
                 </small>
               </div>
-              {(m.id === p.room.selfId ? p.mic : p.voices[m.id]) && (
-                <IconMicrophone size={16} aria-label="麦克风开启" />
-              )}
               {p.host && m.id !== p.room.selfId && (
                 <button
                   className="icon-button danger"
